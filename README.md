@@ -23,7 +23,7 @@
 
 ## Table of Contents
 
-- [✨ Features](#-features)
+- [Features](#features)
 - [Screenshots](#screenshots)
 - [Project Structure](#project-structure)
 - [Subscription Configuration](#subscription-configuration)
