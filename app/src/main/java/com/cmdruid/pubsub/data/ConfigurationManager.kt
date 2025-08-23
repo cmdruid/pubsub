@@ -1,8 +1,8 @@
-package com.pubsub.data
+package com.cmdruid.pubsub.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.pubsub.nostr.NostrFilter
+import com.cmdruid.pubsub.nostr.NostrFilter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 

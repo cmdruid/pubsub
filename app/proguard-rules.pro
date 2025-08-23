@@ -22,8 +22,8 @@
 
 # Keep Gson classes and data models
 -keep class com.google.gson.** { *; }
--keep class com.pubsub.nostr.** { *; }
--keep class com.pubsub.data.** { *; }
+-keep class com.cmdruid.pubsub.nostr.** { *; }
+-keep class com.cmdruid.pubsub.data.** { *; }
 
 # Keep OkHttp classes
 -keep class okhttp3.** { *; }
@@ -31,7 +31,7 @@
 -dontwarn okhttp3.**
 
 # Keep service classes
--keep class com.pubsub.service.** { *; }
+-keep class com.cmdruid.pubsub.service.** { *; }
 
 # Keep attributes for debugging
 -keepattributes SourceFile,LineNumberTable

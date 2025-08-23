@@ -1,11 +1,11 @@
-package com.pubsub.ui.adapters
+package com.cmdruid.pubsub.ui.adapters
 
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.pubsub.databinding.ItemRelayUrlBinding
+import com.cmdruid.pubsub.databinding.ItemRelayUrlBinding
 
 class RelayUrlAdapter : RecyclerView.Adapter<RelayUrlAdapter.RelayUrlViewHolder>() {
     

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.pubsub"
+    namespace = "com.cmdruid.pubsub"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.pubsub"
+        applicationId = "com.cmdruid.pubsub"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -44,7 +44,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("debug")
         }
         
         release {

@@ -1,4 +1,4 @@
-package com.pubsub.service
+package com.cmdruid.pubsub.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -15,13 +15,13 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.pubsub.R
-import com.pubsub.data.Configuration
-import com.pubsub.data.ConfigurationManager
-import com.pubsub.nostr.NostrEvent
-import com.pubsub.nostr.NostrMessage
-import com.pubsub.ui.MainActivity
-import com.pubsub.utils.UriBuilder
+import com.cmdruid.pubsub.R
+import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.nostr.NostrEvent
+import com.cmdruid.pubsub.nostr.NostrMessage
+import com.cmdruid.pubsub.ui.MainActivity
+import com.cmdruid.pubsub.utils.UriBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

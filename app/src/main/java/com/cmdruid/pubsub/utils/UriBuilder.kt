@@ -1,8 +1,8 @@
-package com.pubsub.utils
+package com.cmdruid.pubsub.utils
 
 import android.net.Uri
 import android.util.Base64
-import com.pubsub.nostr.NostrEvent
+import com.cmdruid.pubsub.nostr.NostrEvent
 import com.google.gson.Gson
 import java.nio.charset.StandardCharsets
 

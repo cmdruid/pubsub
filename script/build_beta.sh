@@ -24,7 +24,7 @@ fi
 echo "🔧 Building beta version..."
 echo ""
 echo "ℹ️  Beta build features:"
-echo "   - Package ID: com.pubsub.beta"
+echo "   - Package ID: com.cmdruid.pubsub.beta"
 echo "   - App name: PubSub Beta"
 echo "   - Can be installed alongside production version"
 echo "   - Same optimization as release build"

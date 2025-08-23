@@ -1,11 +1,11 @@
-package com.pubsub.service
+package com.cmdruid.pubsub.service
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import com.pubsub.utils.PreferencesManager
+import com.cmdruid.pubsub.utils.PreferencesManager
 
 /**
  * BroadcastReceiver to auto-start the service on device boot

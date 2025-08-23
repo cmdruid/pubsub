@@ -1,4 +1,4 @@
-package com.pubsub.ui.adapters
+package com.cmdruid.pubsub.ui.adapters
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -9,7 +9,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
-import com.pubsub.R
+import com.cmdruid.pubsub.R
 import java.text.SimpleDateFormat
 import java.util.*
 

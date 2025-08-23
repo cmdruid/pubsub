@@ -1,10 +1,10 @@
-package com.pubsub.ui.adapters
+package com.cmdruid.pubsub.ui.adapters
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.pubsub.data.Configuration
-import com.pubsub.databinding.ItemConfigurationBinding
+import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.databinding.ItemConfigurationBinding
 
 class ConfigurationAdapter(
     private val onEditClick: (Configuration) -> Unit,

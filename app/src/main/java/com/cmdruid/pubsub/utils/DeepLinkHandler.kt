@@ -1,9 +1,9 @@
-package com.pubsub.utils
+package com.cmdruid.pubsub.utils
 
 import android.net.Uri
 import android.util.Base64
-import com.pubsub.data.Configuration
-import com.pubsub.nostr.NostrFilter
+import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.nostr.NostrFilter
 import com.google.gson.Gson
 import java.nio.charset.StandardCharsets
 

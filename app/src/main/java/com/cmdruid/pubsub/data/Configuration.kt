@@ -1,6 +1,6 @@
-package com.pubsub.data
+package com.cmdruid.pubsub.data
 
-import com.pubsub.nostr.NostrFilter
+import com.cmdruid.pubsub.nostr.NostrFilter
 import java.util.UUID
 
 /**

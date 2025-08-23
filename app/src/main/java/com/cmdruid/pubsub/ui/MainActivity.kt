@@ -1,4 +1,4 @@
-package com.pubsub.ui
+package com.cmdruid.pubsub.ui
 
 import android.Manifest
 import android.content.BroadcastReceiver
@@ -17,19 +17,19 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.pubsub.R
-import com.pubsub.data.Configuration
-import com.pubsub.data.ConfigurationManager
-import com.pubsub.databinding.ActivityMainBinding
-import com.pubsub.service.PubSubService
-import com.pubsub.ui.adapters.ConfigurationAdapter
-import com.pubsub.ui.adapters.DebugLogAdapter
-import com.pubsub.utils.DeepLinkHandler
+import com.cmdruid.pubsub.R
+import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.databinding.ActivityMainBinding
+import com.cmdruid.pubsub.service.PubSubService
+import com.cmdruid.pubsub.ui.adapters.ConfigurationAdapter
+import com.cmdruid.pubsub.ui.adapters.DebugLogAdapter
+import com.cmdruid.pubsub.utils.DeepLinkHandler
 
 class MainActivity : AppCompatActivity() {
     
     companion object {
-        const val ACTION_DEBUG_LOG = "com.pubsub.DEBUG_LOG"
+        const val ACTION_DEBUG_LOG = "com.cmdruid.pubsub.DEBUG_LOG"
         const val EXTRA_LOG_MESSAGE = "log_message"
     }
     
