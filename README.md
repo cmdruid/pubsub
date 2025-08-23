@@ -3,7 +3,7 @@
   
   # pubsub
   
-  **Subscribe your sleepy PWAs to the nostr fire-hose**
+  **Keep your sleeping PWAs connected to the nostr fire-hose**
   
   [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
   [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
@@ -15,7 +15,7 @@
 - 🔗 **Persistent Connection**: Stay connected to relays in the background.
 - 🎯 **Event Filtering**: Subscribe to events based on NIP-1 filters.
 - 📱 **Custom Notifications**: Generate notifications with a custom call-back URI.
-- 🌐 **URI-Based Registration**: Register subscriptions through `pubsub://` URI.
+- 🌐 **App Registration**: Register subscriptions through `pubsub://` link.
 - 🔋 **Battery Optimized**: Follows Android best practices for background services.
 
 ---
