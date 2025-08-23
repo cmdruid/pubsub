@@ -1,14 +1,46 @@
-# pubsub
+<div align="center">
+  <img src="assets/pubsub-icon.svg" alt="PubSub Logo" width="120" height="120">
+  
+  # pubsub
+  
+  **Subscribe and forward nostr events to local web apps on Android.**
+  
+  [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
+  [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
+  [![Nostr](https://img.shields.io/badge/Protocol-Nostr-purple.svg)](https://nostr.com)
+</div>
 
-Subscribe and forward nostr events to local web apps on Android.
+## Screenshots
+
+<div align="center">
+  <img src="assets/screens/splash.png" alt="Splash Screen" width="250">
+  <img src="assets/screens/home.png" alt="Home Screen" width="250">
+  <img src="assets/screens/subscribe.png" alt="Subscribe Screen" width="250">
+</div>
+
+*From left to right: Splash screen, Main configuration screen, Subscription editor*
+
+---
+
+## Table of Contents
+
+- [✨ Features](#-features)
+- [Screenshots](#screenshots)
+- [Project Structure](#project-structure)
+- [Subscription Configuration](#subscription-configuration)
+- [Building](#building)
+- [Permissions](#permissions)
+- [License](#license)
+
+---
 
 ## Features
 
-- **Persistent Connection**: Stay connected to relays in the background.
-- **Event Filtering**: Subscribe to events based on NIP-1 filters.
-- **Custom Notifications**: Generate notifications with a custom URI link.
-- **URI-Based Registration**: Register subscriptions through `pubsub://` URI.
-- **Battery Optimized**: Follows Android best practices for background services
+- 🔗 **Persistent Connection**: Stay connected to relays in the background
+- 🎯 **Event Filtering**: Subscribe to events based on NIP-1 filters
+- 📱 **Custom Notifications**: Generate notifications with a custom URI link
+- 🌐 **URI-Based Registration**: Register subscriptions through `pubsub://` URI
+- 🔋 **Battery Optimized**: Follows Android best practices for background services
 
 ## Project Structure
 
