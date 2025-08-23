@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="top">
+
+        <TextView
+            android:id="@+id/timestampText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="10sp"
+            android:textColor="?attr/colorPrimary"
+            android:fontFamily="monospace"
+            android:layout_marginEnd="8dp"
+            android:minWidth="48dp"
+            tools:text="14:30" />
+
+        <TextView
+            android:id="@+id/messageText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurface"
+            android:fontFamily="monospace"
+            tools:text="Service started with 2 subscriptions" />
+
+    </LinearLayout>
+
+    <!-- Simple divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#808080"
+        android:layout_marginHorizontal="12dp" />
+
+</LinearLayout>

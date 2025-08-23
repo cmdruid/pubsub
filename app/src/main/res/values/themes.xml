@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme - Force Dark Mode -->
+    <style name="Base.Theme.PubSub" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Dark theme colors -->
+        <item name="colorPrimary">@color/md_theme_dark_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_dark_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_dark_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_dark_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_dark_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_dark_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_dark_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/md_theme_dark_tertiary</item>
+        <item name="colorOnTertiary">@color/md_theme_dark_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/md_theme_dark_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/md_theme_dark_onTertiaryContainer</item>
+        <item name="colorError">@color/md_theme_dark_error</item>
+        <item name="colorOnError">@color/md_theme_dark_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_dark_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_dark_onErrorContainer</item>
+        <item name="colorOutline">@color/md_theme_dark_outline</item>
+        <item name="android:colorBackground">@color/md_theme_dark_background</item>
+        <item name="colorOnBackground">@color/md_theme_dark_onBackground</item>
+        <item name="colorSurface">@color/md_theme_dark_surface</item>
+        <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
+        <item name="colorSurfaceVariant">@color/md_theme_dark_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/md_theme_dark_onSurfaceVariant</item>
+        <item name="colorSurfaceInverse">@color/md_theme_dark_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/md_theme_dark_inverseOnSurface</item>
+        
+        <!-- Terminal-style text colors -->
+        <item name="android:textColorPrimary">@color/terminal_text_bright</item>
+        <item name="android:textColorSecondary">#F8F8F8</item>
+        <item name="android:textColorTertiary">#E8E8E8</item>
+        <item name="android:textColorHint">#CCFFFFFF</item>
+        <item name="colorOutlineVariant">@color/terminal_orange_primary</item>
+        
+        <!-- Terminal monospace font -->
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:typeface">monospace</item>
+        
+        <!-- Status bar and navigation bar -->
+        <item name="android:statusBarColor">@color/md_theme_dark_background</item>
+        <item name="android:navigationBarColor">@color/md_theme_dark_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <!-- Color when toolbar is scrolled -->
+        <item name="colorSurfaceContainer">#1E3546</item>
+    </style>
+
+    <style name="Theme.PubSub" parent="Base.Theme.PubSub">
+        <!-- Modern splash screen with logo -->
+        <item name="postSplashScreenTheme">@style/Theme.PubSub.PostSplash</item>
+        <item name="android:windowSplashScreenBackground">@color/md_theme_dark_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_large</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/splash_text</item>
+    </style>
+    
+    <!-- Post-splash theme without splash screen attributes -->
+    <style name="Theme.PubSub.PostSplash" parent="Base.Theme.PubSub" />
+    
+    <!-- Terminal-style text inputs -->
+    <style name="Widget.App.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="materialThemeOverlay">@style/ThemeOverlay.App.TextInputLayout</item>
+        <item name="hintTextColor">@color/terminal_text_bright</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">1dp</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textColorHint">#808080</item>
+    </style>
+
+    <style name="ThemeOverlay.App.TextInputLayout" parent="">
+        <item name="editTextStyle">@style/Widget.App.TextInputEditText</item>
+        <item name="colorPrimary">@color/terminal_text_bright</item>
+        <item name="colorOnSurface">#808080</item>
+        <item name="colorError">@color/terminal_text_bright</item>
+    </style>
+
+    <style name="Widget.App.TextInputEditText" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">#E6E6E6</item>
+        <item name="android:textColorHint">#808080</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+    
+    <!-- Custom toolbar style with monospace font -->
+    <style name="Widget.App.Toolbar" parent="Widget.Material3.Toolbar">
+        <item name="titleTextAppearance">@style/TextAppearance.App.Toolbar.Title</item>
+    </style>
+    
+    <style name="TextAppearance.App.Toolbar.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textColor">@color/terminal_orange_secondary</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    
+    <!-- Terminal-style buttons -->
+    <style name="Widget.App.Button" parent="Widget.Material3.Button">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="backgroundTint">@color/terminal_orange_secondary</item>
+        <item name="android:textColor">#000000</item>
+    </style>
+    
+    <style name="Widget.App.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="strokeColor">@color/terminal_orange_secondary</item>
+        <item name="android:textColor">@color/terminal_orange_secondary</item>
+    </style>
+    
+    <!-- Terminal-style cards -->
+    <style name="Widget.App.CardView" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/md_theme_dark_surface</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+</resources>

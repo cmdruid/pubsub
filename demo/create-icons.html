@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas192" width="192" height="192" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    <canvas id="canvas512" width="512" height="512" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    <br>
+    <button onclick="downloadIcons()">Download Icons</button>
+
+    <script>
+        function createIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Icon
+            ctx.fillStyle = 'white';
+            ctx.font = `${size * 0.3}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🚀', size/2, size/2 - size*0.05);
+            
+            // Text
+            ctx.font = `${size * 0.08}px Arial`;
+            ctx.fillText('PUSHU DEMO', size/2, size/2 + size*0.15);
+        }
+
+        function downloadIcons() {
+            // Create 192x192 icon
+            const canvas192 = document.getElementById('canvas192');
+            createIcon(canvas192, 192);
+            
+            // Create 512x512 icon  
+            const canvas512 = document.getElementById('canvas512');
+            createIcon(canvas512, 512);
+            
+            // Download links
+            const link192 = document.createElement('a');
+            link192.download = 'icon-192.png';
+            link192.href = canvas192.toDataURL();
+            link192.click();
+            
+            const link512 = document.createElement('a');
+            link512.download = 'icon-512.png';
+            link512.href = canvas512.toDataURL();
+            link512.click();
+        }
+
+        // Auto-generate on load
+        createIcon(document.getElementById('canvas192'), 192);
+        createIcon(document.getElementById('canvas512'), 512);
+    </script>
+</body>
+</html>

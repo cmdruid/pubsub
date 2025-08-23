@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">PubSub</string>
+    <string name="app_name_beta">PubSub Beta</string>
+    <string name="app_name_debug">PubSub Debug</string>
+    <string name="relay_url_hint">Relay URL</string>
+    <string name="pubkey_hint">Public Key or Filter</string>
+    <string name="target_uri_hint">Target URI</string>
+    <string name="start_service">Start Service</string>
+    <string name="stop_service">Stop Service</string>
+    <string name="save_settings">Save Settings</string>
+    <string name="direct_mode">Direct URI Mode</string>
+    <string name="notification_mode">Notification Mode</string>
+    <string name="service_running">PubSub is running</string>
+    <string name="service_description">Monitoring Nostr events</string>
+    <string name="notification_channel_name">PubSub Notifications</string>
+    <string name="notification_channel_description">Notifications for Nostr events</string>
+    <string name="event_notification_channel_name">Event Notifications</string>
+    <string name="event_notification_channel_description">Notifications for received events</string>
+    <string name="new_nostr_event">New Nostr Event</string>
+    <string name="settings_title">PubSub Settings</string>
+    
+    <!-- Subscription related strings -->
+    <string name="subscription_name">Subscription Name</string>
+    <string name="add_subscription">Add Subscription</string>
+    <string name="edit_subscription">Edit Subscription</string>
+    <string name="new_subscription">New Subscription</string>
+    <string name="delete_subscription">Delete Subscription</string>
+    <string name="subscription_saved">Subscription saved</string>
+    <string name="subscription_updated">Subscription updated</string>
+    <string name="subscription_deleted">Subscription deleted</string>
+    <string name="no_subscriptions">No subscriptions configured</string>
+    <string name="migrated_subscription">Migrated Subscription</string>
+</resources>
