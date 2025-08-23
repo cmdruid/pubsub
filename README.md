@@ -3,7 +3,7 @@
   
   # pubsub
   
-  **Keep your sleeping PWAs connected to the nostr fire-hose**
+  Keep your sleeping PWAs connected to the nostr fire-hose.
   
   [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
   [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
@@ -18,8 +18,6 @@
 - 🌐 **App Registration**: Register subscriptions through `pubsub://` link.
 - 🔋 **Battery Optimized**: Follows Android best practices for background services.
 
----
-
 ## Screenshots
 
 <div align="center">
@@ -28,8 +26,6 @@
 </div>
 
 *From left to right: Main configuration screen, Subscription editor*
-
----
 
 ## Configuration
 
@@ -41,8 +37,6 @@ The app supports multiple subscription configurations:
 4. **NIP-1 Event Filters**: Nostr public key or custom filter to monitor.
 
 The app supports deep link registration via the `pubsub://register` scheme for easy configuration from web applications.
-
----
 
 ## Development
 
