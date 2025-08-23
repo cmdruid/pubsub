@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/pubsub-icon.svg" alt="PubSub Logo" width="120" height="120">
+  <img src="assets/pubsub-icon.png" alt="PubSub Logo" width="120" height="120">
   
   # pubsub
   
@@ -13,12 +13,11 @@
 ## Screenshots
 
 <div align="center">
-  <img src="assets/screens/splash.png" alt="Splash Screen" width="250">
   <img src="assets/screens/home.png" alt="Home Screen" width="250">
   <img src="assets/screens/subscribe.png" alt="Subscribe Screen" width="250">
 </div>
 
-*From left to right: Splash screen, Main configuration screen, Subscription editor*
+*From left to right: Main configuration screen, Subscription editor*
 
 ---
 
