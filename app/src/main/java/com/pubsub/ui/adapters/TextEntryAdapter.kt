@@ -1,12 +1,12 @@
-package com.example.pubsub.ui.adapters
+package com.pubsub.ui.adapters
 
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.example.pubsub.databinding.ItemTextEntryBinding
-import com.example.pubsub.utils.NostrUtils
+import com.pubsub.databinding.ItemTextEntryBinding
+import com.pubsub.utils.NostrUtils
 
 class TextEntryAdapter(
     private val hint: String = "Enter value",

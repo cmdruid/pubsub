@@ -1,4 +1,4 @@
-package com.example.pubsub.nostr
+package com.pubsub.nostr
 
 import com.google.gson.annotations.SerializedName
 

@@ -1,8 +1,8 @@
-package com.example.pubsub.data
+package com.pubsub.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.example.pubsub.nostr.NostrFilter
+import com.pubsub.nostr.NostrFilter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 

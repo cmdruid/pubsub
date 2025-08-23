@@ -1,6 +1,6 @@
-package com.example.pubsub.data
+package com.pubsub.data
 
-import com.example.pubsub.nostr.NostrFilter
+import com.pubsub.nostr.NostrFilter
 import java.util.UUID
 
 /**

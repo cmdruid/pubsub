@@ -1,4 +1,4 @@
-package com.example.pubsub.ui
+package com.pubsub.ui
 
 import android.content.Context
 import android.content.Intent
@@ -10,15 +10,15 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.pubsub.R
-import com.example.pubsub.data.Configuration
-import com.example.pubsub.data.ConfigurationManager
-import com.example.pubsub.databinding.ActivityConfigurationEditorBinding
-import com.example.pubsub.nostr.NostrFilter
-import com.example.pubsub.ui.adapters.RelayUrlAdapter
-import com.example.pubsub.ui.adapters.TextEntryAdapter
-import com.example.pubsub.utils.NostrUtils
-import com.example.pubsub.utils.UriBuilder
+import com.pubsub.R
+import com.pubsub.data.Configuration
+import com.pubsub.data.ConfigurationManager
+import com.pubsub.databinding.ActivityConfigurationEditorBinding
+import com.pubsub.nostr.NostrFilter
+import com.pubsub.ui.adapters.RelayUrlAdapter
+import com.pubsub.ui.adapters.TextEntryAdapter
+import com.pubsub.utils.NostrUtils
+import com.pubsub.utils.UriBuilder
 
 class ConfigurationEditorActivity : AppCompatActivity() {
     

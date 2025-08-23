@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.frostr.pubsub"
+    namespace = "com.pubsub"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.frostr.pubsub"
+        applicationId = "com.pubsub"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

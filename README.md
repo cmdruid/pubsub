@@ -3,12 +3,22 @@
   
   # pubsub
   
-  **Subscribe and forward nostr events to local web apps on Android.**
+  **Subscribe your sleepy PWAs to the nostr fire-hose**
   
   [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
   [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
   [![Nostr](https://img.shields.io/badge/Protocol-Nostr-purple.svg)](https://nostr.com)
 </div>
+
+## Features
+
+- 🔗 **Persistent Connection**: Stay connected to relays in the background.
+- 🎯 **Event Filtering**: Subscribe to events based on NIP-1 filters.
+- 📱 **Custom Notifications**: Generate notifications with a custom call-back URI.
+- 🌐 **URI-Based Registration**: Register subscriptions through `pubsub://` URI.
+- 🔋 **Battery Optimized**: Follows Android best practices for background services.
+
+---
 
 ## Screenshots
 
@@ -21,30 +31,25 @@
 
 ---
 
-## Table of Contents
+## Configuration
 
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Project Structure](#project-structure)
-- [Subscription Configuration](#subscription-configuration)
-- [Building](#building)
-- [Permissions](#permissions)
-- [License](#license)
+The app supports multiple subscription configurations:
+
+1. **Subscription Name**: Descriptive name for the subscription.
+2. **Target Device URI**: URI to forward events to (e.g., URL of your web app).
+3. **Relay URLs**: One or more relays URLs (e.g., `wss://relay.damus.io`).
+4. **NIP-1 Event Filters**: Nostr public key or custom filter to monitor.
+
+The app supports deep link registration via the `pubsub://register` scheme for easy configuration from web applications.
 
 ---
 
-## Features
+## Development
 
-- 🔗 **Persistent Connection**: Stay connected to relays in the background
-- 🎯 **Event Filtering**: Subscribe to events based on NIP-1 filters
-- 📱 **Custom Notifications**: Generate notifications with a custom URI link
-- 🌐 **URI-Based Registration**: Register subscriptions through `pubsub://` URI
-- 🔋 **Battery Optimized**: Follows Android best practices for background services
-
-## Project Structure
+### Project Structure
 
 ```
-app/src/main/java/com/frostr/pubsub/
+app/src/main/java/com/pubsub/
 ├── ui/                 # User interface components
 │   ├── MainActivity.kt # Main configuration activity
 │   ├── ConfigurationEditorActivity.kt # Subscription editor
@@ -66,21 +71,6 @@ app/src/main/java/com/frostr/pubsub/
     └── DeepLinkHandler.kt # Deep link processing
 ```
 
-## Subscription Configuration
-
-The app supports multiple subscription configurations:
-
-1. **Subscription Name**: Descriptive name for the subscription.
-2. **Target Device URI**: URI to forward events to (e.g., URL of your web app).
-3. **Relay URLs**: One or more relays URLs (e.g., `wss://relay.damus.io`)
-4. **NIP-1 Event Filters**: Nostr public key or custom filter to monitor
-
-### Subscription Registration
-
-The app supports deep link registration via the `pubsub://register` scheme for easy configuration from web applications.
-
-## Building
-
 ### Prerequisites
 
 - Android Studio (Koala or later)
@@ -98,19 +88,19 @@ The app supports deep link registration via the `pubsub://register` scheme for e
 
 1. Generate signing keystore:
    ```bash
-   ./generate_keystore.sh
+   ./script/generate_keystore.sh
    ```
 
 2. Update `app/build.gradle.kts` with your keystore details
 
 3. Build release version:
    ```bash
-   ./build_release.sh
+   ./script/build_release.sh
    ```
 
 4. Build beta version for testing:
    ```bash
-   ./build_beta.sh
+   ./script/build_beta.sh
    ```
 
 > See `docs/RELEASE_CHECKLIST.md` for complete Google Play Store preparation steps.
@@ -139,4 +129,4 @@ All permissions are documented in the privacy policy and are essential for core 
 
 ## License
 
-This project is intended for educational and development purposes.
+This project is free and open source. It is intended for educational and development purposes. No warranty, no refunds.

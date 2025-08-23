@@ -1,4 +1,4 @@
-package com.example.pubsub.utils
+package com.pubsub.utils
 
 import android.content.Context
 import android.content.SharedPreferences

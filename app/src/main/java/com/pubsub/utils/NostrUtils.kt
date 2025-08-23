@@ -1,4 +1,4 @@
-package com.example.pubsub.utils
+package com.pubsub.utils
 
 import android.util.Log
 import java.security.MessageDigest
