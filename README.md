@@ -12,9 +12,9 @@
 
 ## Features
 
-- 🔗 **Persistent Connection**: Stay connected to relays in the background.
-- 🎯 **Event Filtering**: Subscribe to events based on NIP-1 filters.
-- 📱 **Custom Notifications**: Generate notifications with a custom call-back URI.
+- 🔗 **Persistent Connection**: Stay connected to relays in the background and across device restarts.
+- 🎯 **Event Subscription**: Subscribe to relay events based on standard NIP-1 filters.
+- 📱 **Notification Links**: Receive event notifications that link to your custom call-back URI.
 - 🌐 **App Registration**: Register subscriptions through `pubsub://` link.
 - 🔋 **Battery Optimized**: Follows Android best practices for background services.
 
