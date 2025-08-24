@@ -26,10 +26,9 @@ class SubscriptionManager {
     )
     
     /**
-     * Create a new subscription with unique ID
+     * Register a subscription with a specific ID
      */
-    fun createSubscription(configurationId: String, filter: NostrFilter, relayUrl: String): String {
-        val subscriptionId = generateSubscriptionId(configurationId)
+    fun registerSubscription(subscriptionId: String, configurationId: String, filter: NostrFilter, relayUrl: String) {
         val subscriptionInfo = SubscriptionInfo(
             id = subscriptionId,
             configurationId = configurationId,
@@ -39,9 +38,7 @@ class SubscriptionManager {
         )
         
         activeSubscriptions[subscriptionId] = subscriptionInfo
-        Log.d(TAG, "Created subscription: $subscriptionId for config: $configurationId")
-        
-        return subscriptionId
+        Log.d(TAG, "Registered subscription: $subscriptionId for config: $configurationId")
     }
     
     /**
@@ -65,6 +62,13 @@ class SubscriptionManager {
      */
     fun getSubscriptionInfo(subscriptionId: String): SubscriptionInfo? {
         return activeSubscriptions[subscriptionId]
+    }
+    
+    /**
+     * Get configuration ID for a subscription
+     */
+    fun getConfigurationId(subscriptionId: String): String? {
+        return activeSubscriptions[subscriptionId]?.configurationId
     }
     
     /**
@@ -160,10 +164,5 @@ class SubscriptionManager {
         val newestSubscription: Long?
     )
     
-    private fun generateSubscriptionId(configurationId: String): String {
-        // Create deterministic but unique ID based on config and timestamp
-        val timestamp = System.currentTimeMillis()
-        val uuid = UUID.randomUUID().toString().take(8)
-        return "${configurationId}_${timestamp}_$uuid"
-    }
+
 }

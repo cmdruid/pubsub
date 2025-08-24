@@ -1,4 +1,4 @@
-# Pushu Android App - Development Status
+# PubSub Android App - Development Status
 
 ## ✅ Completed Setup
 
@@ -29,7 +29,7 @@ The Android project has been successfully set up according to the PROMPT.md guid
   - Settings persistence
 
 #### 2. Background Service (`service/`)
-- ✅ `PushuService.kt` - Main foreground service with:
+- ✅ `PubSubService.kt` - Main foreground service with:
   - WebSocket connection management
   - Nostr event subscription
   - Automatic reconnection with exponential backoff

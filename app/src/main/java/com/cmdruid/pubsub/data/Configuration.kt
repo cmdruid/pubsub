@@ -4,10 +4,18 @@ import com.cmdruid.pubsub.nostr.NostrFilter
 import java.util.UUID
 
 /**
+ * Generate a unique subscription ID for Nostr relay subscriptions
+ */
+private fun generateSubscriptionId(): String {
+    return "sub_${UUID.randomUUID().toString().replace("-", "").take(16)}"
+}
+
+/**
  * Represents a complete configuration for monitoring Nostr events
  */
 data class Configuration(
     val id: String = UUID.randomUUID().toString(),
+    val subscriptionId: String = generateSubscriptionId(),
     val name: String,
     val relayUrls: List<String>,
     val filter: NostrFilter,
@@ -34,4 +42,6 @@ data class Configuration(
         val filterSummary = filter.getSummary()
         return "$name • $relayCount relay${if (relayCount != 1) "s" else ""} • $filterSummary"
     }
+    
+
 }

@@ -1,6 +1,7 @@
 package com.cmdruid.pubsub.ui
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -114,12 +115,20 @@ class MainActivity : AppCompatActivity() {
                 showDeleteConfirmationDialog(configuration)
             },
             onEnabledChanged = { configuration, enabled ->
+                configurationManager.addDebugLog("🔄 Toggle: ${configuration.name} → ${if (enabled) "ON" else "OFF"}")
+                
                 val updatedConfiguration = configuration.copy(isEnabled = enabled)
                 configurationManager.updateConfiguration(updatedConfiguration)
                 
+                // Update the adapter with the new configuration
+                configurationAdapter.updateConfiguration(updatedConfiguration)
+                
                 // Notify service to sync configurations if it's running
                 if (configurationManager.isServiceRunning) {
+                    configurationManager.addDebugLog("📤 Syncing service configurations...")
                     syncServiceConfigurations()
+                } else {
+                    configurationManager.addDebugLog("⏸️ Service not running, toggle saved but won't take effect until service starts")
                 }
                 
                 updateServiceStatus()
@@ -161,15 +170,6 @@ class MainActivity : AppCompatActivity() {
             
 
             
-            refreshConnectionsButton.setOnClickListener {
-                if (configurationManager.isServiceRunning) {
-                    refreshServiceConnections()
-                    Toast.makeText(this@MainActivity, "Refreshing connections...", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "Service is not running", Toast.LENGTH_SHORT).show()
-                }
-            }
-            
             clearLogsButton.setOnClickListener {
                 configurationManager.clearDebugLogs()
                 refreshDebugLogs()
@@ -199,8 +199,11 @@ class MainActivity : AppCompatActivity() {
             startService(serviceIntent)
         }
         
-        configurationManager.isServiceRunning = true
-        updateServiceStatus()
+        // Wait a bit for service to start, then update UI
+        binding.root.postDelayed({
+            updateServiceStatus()
+        }, 100)
+        
         Toast.makeText(this, "Service started with ${configurationManager.getEnabledConfigurations().size} subscription(s)", Toast.LENGTH_SHORT).show()
     }
     
@@ -208,8 +211,11 @@ class MainActivity : AppCompatActivity() {
         val serviceIntent = Intent(this, PubSubService::class.java)
         stopService(serviceIntent)
         
-        configurationManager.isServiceRunning = false
-        updateServiceStatus()
+        // Wait a bit for service to stop, then update UI
+        binding.root.postDelayed({
+            updateServiceStatus()
+        }, 200)
+        
         Toast.makeText(this, "Service stopped", Toast.LENGTH_SHORT).show()
     }
     
@@ -294,16 +300,63 @@ class MainActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
+        
+        // Check for stale service state and fix it
+        checkAndFixServiceState()
+        
         updateServiceStatus()
         refreshConfigurations()
         refreshDebugLogs()
+    }
+    
+    /**
+     * Check if the service is actually running and fix stale state
+     */
+    private fun checkAndFixServiceState() {
+        val storedState = configurationManager.isServiceRunning
+        val actuallyRunning = isServiceActuallyRunning()
         
-        // Refresh WebSocket connections if service is running
-        if (configurationManager.isServiceRunning) {
-            refreshServiceConnections()
+        if (storedState != actuallyRunning) {
+            configurationManager.addDebugLog("🔧 Service state mismatch detected - stored: $storedState, actual: $actuallyRunning")
+            
+            if (storedState && !actuallyRunning) {
+                // App thinks service is running but it's not (service was killed)
+                configurationManager.isServiceRunning = false
+                configurationManager.addDebugLog("❌ Service was killed, state corrected")
+                
+                if (configurationManager.hasValidEnabledConfigurations()) {
+                    configurationManager.addDebugLog("🔄 Auto-restarting service after it was killed")
+                    // Give the system a moment, then restart the service
+                    binding.root.postDelayed({
+                        if (!isServiceActuallyRunning()) {
+                            startPubSubService()
+                            Toast.makeText(this@MainActivity, "Service restarted after system kill", Toast.LENGTH_SHORT).show()
+                        }
+                    }, 1000)
+                }
+            } else if (!storedState && actuallyRunning) {
+                // Service is running but app doesn't think it is (service auto-restarted)
+                configurationManager.isServiceRunning = true
+                configurationManager.addDebugLog("✅ Found running service, updated state")
+                Toast.makeText(this, "Service automatically restarted", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
+    /**
+     * Check if PubSubService is actually running
+     */
+    private fun isServiceActuallyRunning(): Boolean {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in activityManager.getRunningServices(Integer.MAX_VALUE)) {
+            if (PubSubService::class.java.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+
     /**
      * Sync service configurations with current enabled configurations
      */
@@ -325,26 +378,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Refresh service WebSocket connections to ensure they're active
-     */
-    private fun refreshServiceConnections() {
-        try {
-            val serviceIntent = Intent(this, PubSubService::class.java).apply {
-                action = "REFRESH_CONNECTIONS"
-            }
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            } else {
-                startService(serviceIntent)
-            }
-            
-            configurationManager.addDebugLog("🔄 Requested connection refresh")
-        } catch (e: Exception) {
-            configurationManager.addDebugLog("❌ Failed to refresh connections: ${e.message}")
-        }
-    }
+
     
     /**
      * Handle deep link intents for registering filter configurations

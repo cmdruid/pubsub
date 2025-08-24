@@ -36,6 +36,13 @@ class ConfigurationManager(context: Context) {
     }
     
     /**
+     * Get configuration by ID
+     */
+    fun getConfigurationById(id: String): Configuration? {
+        return getConfigurations().find { it.id == id }
+    }
+    
+    /**
      * Get all configurations
      */
     fun getConfigurations(): List<Configuration> {

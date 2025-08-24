@@ -350,6 +350,12 @@
                         android:nestedScrollingEnabled="false"
                         android:layout_marginBottom="16dp" />
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#40FFFFFF"
+                        android:layout_marginBottom="16dp" />
+
                     <!-- Hashtags -->
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -394,23 +400,7 @@
 
 
 
-                    <!-- Limit -->
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/limitLayout"
-                        style="@style/Widget.App.TextInputLayout"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
-                        android:hint="Limit"
-                        app:helperText="Maximum number of events to receive">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/limitEditText"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
 

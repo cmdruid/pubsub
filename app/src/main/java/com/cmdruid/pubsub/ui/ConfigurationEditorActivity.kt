@@ -182,8 +182,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         eventRefsAdapter.setEntries(filter.eventRefs ?: emptyList())
         hashtagsAdapter.setEntries(filter.hashtags ?: emptyList())
         
-        // Load simple fields
-        binding.limitEditText.setText(filter.limit?.toString() ?: "")
+        // No simple fields to load (limit field removed)
     }
     
     private fun saveConfiguration() {
@@ -283,9 +282,6 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         val eventRefs = eventRefsAdapter.getEntries().takeIf { it.isNotEmpty() }
         val hashtags = hashtagsAdapter.getEntries().takeIf { it.isNotEmpty() }
         
-        // Get simple field values
-        val limit = binding.limitEditText.text.toString().trim().toIntOrNull()
-        
         return NostrFilter(
             authors = authors,
             kinds = kinds,
@@ -295,7 +291,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             search = null, // Removed text search
             since = null, // Will be auto-updated by service
             until = null, // Removed time range
-            limit = limit
+            limit = null // Removed limit field
         )
     }
     

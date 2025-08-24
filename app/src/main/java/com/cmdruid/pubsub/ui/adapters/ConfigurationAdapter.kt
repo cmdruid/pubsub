@@ -61,11 +61,15 @@ class ConfigurationAdapter(
                 summaryText.text = configuration.getSummary()
                 targetUriText.text = configuration.targetUri
                 
+                // Clear listener first to prevent triggering during setup
+                enabledSwitch.setOnCheckedChangeListener(null)
                 enabledSwitch.isChecked = configuration.isEnabled
+                
+                // Set listener after updating the checked state
                 enabledSwitch.setOnCheckedChangeListener { _, isChecked ->
-                    if (isChecked != configuration.isEnabled) {
-                        onEnabledChanged(configuration, isChecked)
-                    }
+                    android.util.Log.d("ConfigAdapter", "Switch toggled for ${configuration.name}: $isChecked (was ${configuration.isEnabled})")
+                    // Always call the callback since the user actively changed the switch
+                    onEnabledChanged(configuration, isChecked)
                 }
                 
                 editButton.setOnClickListener {

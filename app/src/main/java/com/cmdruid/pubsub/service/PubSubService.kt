@@ -19,6 +19,7 @@ import com.cmdruid.pubsub.R
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
 import com.cmdruid.pubsub.nostr.NostrEvent
+import com.cmdruid.pubsub.nostr.NostrFilter
 import com.cmdruid.pubsub.nostr.NostrMessage
 import com.cmdruid.pubsub.service.SubscriptionManager
 import com.cmdruid.pubsub.ui.MainActivity
@@ -79,7 +80,7 @@ class PubSubService : Service() {
     private var lastNotificationTime = 0L
     private var notificationCount = 0
     private val notificationRateLimit = 5000L // 5 seconds between notifications
-    private val maxNotificationsPerHour = 20
+    private val maxNotificationsPerHour = 200 // Allow many notifications per hour, cleanup manages UI display
     
     // Track active event notifications for grouping
     private val activeNotifications = ConcurrentHashMap<Int, NotificationInfo>()
@@ -101,6 +102,9 @@ class PubSubService : Service() {
         
         createNotificationChannels()
         setupOkHttpClient()
+        
+        // Update service state when service is actually created
+        configurationManager.isServiceRunning = true
         
         sendDebugLog("⚡ Service created")
     }
@@ -127,13 +131,18 @@ class PubSubService : Service() {
 
         
         serviceJob = CoroutineScope(Dispatchers.IO).launch {
-            // Clean up any orphaned subscriptions before starting
-            cleanupOrphanedSubscriptions()
-            
-            connectToAllRelays()
-            
-            // Log initial stats
-            logServiceStats()
+            try {
+                // Clean up any orphaned subscriptions before starting
+                cleanupOrphanedSubscriptions()
+                
+                connectToAllRelays()
+                
+                // Log initial stats
+                logServiceStats()
+            } catch (e: Exception) {
+                sendDebugLog("❌ Service startup error: ${e.message}")
+                Log.e(TAG, "Service startup failed", e)
+            }
         }
         
         return START_STICKY // Restart if killed
@@ -150,6 +159,8 @@ class PubSubService : Service() {
         eventCache.clear()
         
         okHttpClient = null
+        
+        // Always update the service state when service is actually destroyed
         configurationManager.isServiceRunning = false
         
 
@@ -217,13 +228,23 @@ class PubSubService : Service() {
     }
     
     private suspend fun connectToAllRelays() {
-        val configurations = configurationManager.getEnabledConfigurations()
-        sendDebugLog("🔌 Starting connections for ${configurations.size} subscription(s)")
-        
-        for (configuration in configurations) {
-            for (relayUrl in configuration.relayUrls) {
-                connectToRelay(relayUrl, configuration)
+        try {
+            val configurations = configurationManager.getEnabledConfigurations()
+            sendDebugLog("🔌 Starting connections for ${configurations.size} subscription(s)")
+            
+            for (configuration in configurations) {
+                for (relayUrl in configuration.relayUrls) {
+                    try {
+                        connectToRelay(relayUrl, configuration)
+                    } catch (e: Exception) {
+                        sendDebugLog("❌ Failed to connect to $relayUrl: ${e.message}")
+                        Log.e(TAG, "Connection failed for $relayUrl", e)
+                    }
+                }
             }
+        } catch (e: Exception) {
+            sendDebugLog("❌ Error in connectToAllRelays: ${e.message}")
+            Log.e(TAG, "connectToAllRelays failed", e)
         }
     }
     
@@ -271,23 +292,27 @@ class PubSubService : Service() {
             return
         }
         
+        // Use the configuration's permanent subscription ID
+        val subscriptionId = configuration.subscriptionId
+        
         // Always update the "since" timestamp to get only new events
-        val filterToUse = if (connection.subscriptionId != null) {
-            // This is a resubscription - use updated filter with latest timestamp
-            subscriptionManager.createResubscriptionFilter(connection.subscriptionId!!) ?: createInitialFilter(configuration.filter)
+        val filterToUse = if (connection.subscriptionId != null && connection.subscriptionId == subscriptionId) {
+            // This is a resubscription with the same ID - use updated filter with latest timestamp
+            subscriptionManager.createResubscriptionFilter(subscriptionId) ?: createInitialFilter(configuration.filter)
         } else {
-            // New subscription - set "since" to current time to get only new events
+            // New subscription or subscription ID changed - set "since" to current time to get only new events
             createInitialFilter(configuration.filter)
         }
         
-        // Create new subscription with the subscription manager
-        val subscriptionId = subscriptionManager.createSubscription(
+        // Register subscription with the subscription manager
+        subscriptionManager.registerSubscription(
+            subscriptionId = subscriptionId,
             configurationId = configuration.id,
             filter = filterToUse,
             relayUrl = connection.relayUrl
         )
         
-        // Update connection with new subscription ID
+        // Update connection with the configuration's subscription ID
         connection.subscriptionId = subscriptionId
         
         val subscriptionMessage = NostrMessage.createSubscription(subscriptionId, filterToUse)
@@ -306,7 +331,7 @@ class PubSubService : Service() {
         return baseFilter.copy(since = currentTimestamp)
     }
     
-    private fun handleWebSocketMessage(messageText: String, configuration: Configuration) {
+    private fun handleWebSocketMessage(messageText: String, originalConfiguration: Configuration) {
         // Process messages on a background thread to prevent ANRs
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -325,43 +350,63 @@ class PubSubService : Service() {
                             return@launch
                         }
                         
-                        // 2. Validate event structure
+                        // 2. Get the current configuration for this subscription to avoid stale data
+                        val configurationId = subscriptionManager.getConfigurationId(subscriptionId)
+                        val currentConfiguration = if (configurationId != null) {
+                            configurationManager.getConfigurationById(configurationId)
+                        } else {
+                            null
+                        }
+                        
+                        if (currentConfiguration == null || !currentConfiguration.isEnabled) {
+                            sendDebugLog("🚫 Ignoring event: configuration not found or disabled for subscription $subscriptionId")
+                            return@launch
+                        }
+                        
+                        // 3. Validate event structure
                         if (!event.isValid()) {
                             sendDebugLog("❌ Invalid event rejected: ${event.id.take(8)}...")
                             return@launch
                         }
                         
-                        // 3. Check for duplicate events
+                        // 4. Check for duplicate events
                         if (eventCache.hasSeenEvent(event.id)) {
                             sendDebugLog("🔄 Ignoring duplicate event: ${event.id.take(8)}...")
                             return@launch
                         }
                         
-                        // 4. Mark as seen and update timestamp tracking
+                        // 5. Mark as seen and update timestamp tracking
                         eventCache.markEventSeen(event.id)
                         subscriptionManager.updateLastEventTimestamp(subscriptionId, event.createdAt)
                         
-                        sendDebugLog("📨 Event: ${event.id.take(8)}... (${configuration.name}) [${NostrEvent.getKindName(event.kind)}]")
-                        handleNostrEvent(event, configuration, subscriptionId)
+                        sendDebugLog("📨 Event: ${event.id.take(8)}... (${currentConfiguration.name}) [${NostrEvent.getKindName(event.kind)}]")
+                        handleNostrEvent(event, currentConfiguration, subscriptionId)
                     }
                     is NostrMessage.ParsedMessage.EoseMessage -> {
-                        sendDebugLog("✅ End of stored events for ${configuration.name}")
+                        val subscriptionId = parsedMessage.subscriptionId
+                        val configurationId = subscriptionManager.getConfigurationId(subscriptionId)
+                        val currentConfiguration = if (configurationId != null) {
+                            configurationManager.getConfigurationById(configurationId)
+                        } else {
+                            originalConfiguration
+                        }
+                        sendDebugLog("✅ End of stored events for ${currentConfiguration?.name ?: "unknown"}")
                     }
                     is NostrMessage.ParsedMessage.NoticeMessage -> {
-                        sendDebugLog("📢 Relay notice for ${configuration.name}: ${parsedMessage.notice}")
+                        sendDebugLog("📢 Relay notice for ${originalConfiguration.name}: ${parsedMessage.notice}")
                     }
                     is NostrMessage.ParsedMessage.OkMessage -> {
-                        Log.d(TAG, "OK response for ${configuration.name}: ${parsedMessage.eventId} - ${parsedMessage.success}")
+                        Log.d(TAG, "OK response for ${originalConfiguration.name}: ${parsedMessage.eventId} - ${parsedMessage.success}")
                     }
                     is NostrMessage.ParsedMessage.UnknownMessage -> {
-                        sendDebugLog("⚠️ Unknown message type for ${configuration.name}: ${parsedMessage.type}")
+                        sendDebugLog("⚠️ Unknown message type for ${originalConfiguration.name}: ${parsedMessage.type}")
                     }
                     null -> {
-                        sendDebugLog("❌ Failed to parse message for ${configuration.name}: $messageText")
+                        sendDebugLog("❌ Failed to parse message for ${originalConfiguration.name}: $messageText")
                     }
                 }
             } catch (e: Exception) {
-                sendDebugLog("❌ Error processing message for ${configuration.name}: ${e.message}")
+                sendDebugLog("❌ Error processing message for ${originalConfiguration.name}: ${e.message}")
             }
         }
     }
@@ -393,11 +438,16 @@ class PubSubService : Service() {
 
     
     private fun showEventNotification(event: NostrEvent, uri: Uri, configuration: Configuration, subscriptionId: String) {
+        sendDebugLog("🔔 Processing notification for event: ${event.id.take(8)}... (${configuration.name})")
         val currentTime = System.currentTimeMillis()
         
         // Reset notification count every hour
         if (currentTime - lastNotificationTime > 3600000) { // 1 hour
+            val oldCount = notificationCount
             notificationCount = 0
+            if (oldCount > 0) {
+                sendDebugLog("🔄 Hourly notification count reset: $oldCount → 0")
+            }
         }
         
         // Rate limiting: max notifications per hour and minimum time between notifications
@@ -407,9 +457,11 @@ class PubSubService : Service() {
         }
         
         if (currentTime - lastNotificationTime < notificationRateLimit) {
-            sendDebugLog("⏱️ Too frequent: ${configuration.name}")
+            sendDebugLog("⏱️ Too frequent: ${configuration.name} (${(currentTime - lastNotificationTime)/1000}s < ${notificationRateLimit/1000}s)")
             return
         }
+        
+        sendDebugLog("✅ Rate limit passed for: ${configuration.name} (count: $notificationCount/$maxNotificationsPerHour)")
         
         // Create an intent that will definitely open externally
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
@@ -426,8 +478,30 @@ class PubSubService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        // Create a notification with explicit grouping
-        val notificationId = subscriptionId.hashCode()
+        // Clean up old notifications BEFORE checking duplicates and adding new ones
+        cleanupOldNotifications()
+        
+        // Create a unique notification ID based on event ID to prevent duplicates
+        // Use event ID hash combined with configuration ID to ensure uniqueness
+        val notificationId = "${event.id}_${configuration.id}".hashCode()
+        
+        // Check if we already have a notification for this event
+        if (activeNotifications.containsKey(notificationId)) {
+            sendDebugLog("🔄 Skipping duplicate notification for event: ${event.id.take(8)}...")
+            return
+        }
+        
+        // Double check we have space for new notifications
+        if (activeNotifications.size >= 20) {
+            sendDebugLog("⚠️ Notification limit reached (${activeNotifications.size}/20), forcing cleanup")
+            // Force cleanup and try again
+            val oldestEntry = activeNotifications.toList().minByOrNull { it.second.timestamp }
+            oldestEntry?.let { (oldNotificationId, _) ->
+                activeNotifications.remove(oldNotificationId)
+                notificationManager.cancel(oldNotificationId)
+                sendDebugLog("🧹 Forced removal of oldest notification to make space")
+            }
+        }
         
         val notification = NotificationCompat.Builder(this, EVENT_CHANNEL_ID)
             .setContentTitle("New Event (${configuration.name})")
@@ -458,9 +532,31 @@ class PubSubService : Service() {
         lastNotificationTime = currentTime
         notificationCount++
         
-        sendDebugLog("🔔 Notification sent: ${configuration.name} [Sub: ${subscriptionId.take(8)}...] (#$notificationCount)")
+        sendDebugLog("🔔 Notification sent: ${configuration.name} [Event: ${event.id.take(8)}...] (#$notificationCount) [${activeNotifications.size}/20]")
     }
     
+    /**
+     * Clean up old notifications to prevent memory leaks
+     */
+    private fun cleanupOldNotifications() {
+        val maxNotifications = 20
+        if (activeNotifications.size >= maxNotifications) {
+            // Remove oldest notifications to make room
+            val sortedNotifications = activeNotifications.toList().sortedBy { it.second.timestamp }
+            val toRemove = sortedNotifications.take(activeNotifications.size - maxNotifications + 1)
+            
+            toRemove.forEach { (notificationId, notificationInfo) ->
+                activeNotifications.remove(notificationId)
+                notificationManager.cancel(notificationId)
+                sendDebugLog("🗑️ Removed notification: ${notificationInfo.configurationName} [${notificationInfo.eventContent.take(20)}...]")
+            }
+            
+            if (toRemove.isNotEmpty()) {
+                sendDebugLog("🧹 Cleaned up ${toRemove.size} old notifications (${activeNotifications.size}/${maxNotifications} remaining)")
+            }
+        }
+    }
+
     /**
      * Create or update the summary notification for grouped notifications
      * This allows tapping the grouped notification to expand rather than open the app
@@ -581,37 +677,51 @@ class PubSubService : Service() {
      */
     private fun syncConfigurations() {
         CoroutineScope(Dispatchers.IO).launch {
-            sendDebugLog("🔄 Synchronizing configurations with active subscriptions...")
-            
-            val enabledConfigurations = configurationManager.getEnabledConfigurations()
-            val currentRelayUrls = relayConnections.keys.toSet()
-            
-            // Build set of relay URLs that should be active based on enabled configurations
-            val expectedRelayUrls = mutableSetOf<String>()
-            enabledConfigurations.forEach { config ->
-                expectedRelayUrls.addAll(config.relayUrls)
-            }
+            try {
+                sendDebugLog("🔄 Synchronizing configurations with active subscriptions...")
+                
+                val enabledConfigurations = configurationManager.getEnabledConfigurations()
+                val currentRelayUrls = relayConnections.keys.toSet()
+                
+                // Build set of relay URLs that should be active based on enabled configurations
+                val expectedRelayUrls = mutableSetOf<String>()
+                enabledConfigurations.forEach { config ->
+                    expectedRelayUrls.addAll(config.relayUrls)
+                }
             
             // Remove connections for disabled configurations
             val relaysToRemove = currentRelayUrls - expectedRelayUrls
             if (relaysToRemove.isNotEmpty()) {
                 sendDebugLog("🗑️ Removing ${relaysToRemove.size} disabled subscription(s)")
                 relaysToRemove.forEach { relayUrl ->
-                    val connection = relayConnections[relayUrl]
-                    if (connection != null) {
-                        // Send close message if subscription exists
-                        connection.subscriptionId?.let { subId ->
-                            connection.webSocket?.send(NostrMessage.createClose(subId))
-                            subscriptionManager.removeSubscription(subId)
-                            sendDebugLog("🛑 Closed subscription: ${subId.take(8)}... for $relayUrl")
+                    try {
+                        val connection = relayConnections[relayUrl]
+                        if (connection != null) {
+                            // Send close message if subscription exists
+                            connection.subscriptionId?.let { subId ->
+                                try {
+                                    connection.webSocket?.send(NostrMessage.createClose(subId))
+                                    subscriptionManager.removeSubscription(subId)
+                                    sendDebugLog("🛑 Closed subscription: ${subId.take(8)}... for $relayUrl")
+                                } catch (e: Exception) {
+                                    sendDebugLog("⚠️ Error closing subscription $subId: ${e.message}")
+                                }
+                            }
+                            
+                            // Cancel reconnect job and close connection
+                            try {
+                                connection.reconnectJob?.cancel()
+                                connection.webSocket?.close(1000, "Configuration disabled")
+                                relayConnections.remove(relayUrl)
+                                sendDebugLog("❌ Removed connection: $relayUrl")
+                            } catch (e: Exception) {
+                                sendDebugLog("⚠️ Error removing connection $relayUrl: ${e.message}")
+                                // Still remove from map even if close failed
+                                relayConnections.remove(relayUrl)
+                            }
                         }
-                        
-                        // Cancel reconnect job and close connection
-                        connection.reconnectJob?.cancel()
-                        connection.webSocket?.close(1000, "Configuration disabled")
-                        relayConnections.remove(relayUrl)
-                        
-                        sendDebugLog("❌ Removed connection: $relayUrl")
+                    } catch (e: Exception) {
+                        sendDebugLog("⚠️ Error processing removal of $relayUrl: ${e.message}")
                     }
                 }
             }
@@ -623,8 +733,12 @@ class PubSubService : Service() {
                 enabledConfigurations.forEach { config ->
                     config.relayUrls.forEach { relayUrl ->
                         if (relayUrl in relaysToAdd) {
-                            connectToRelay(relayUrl, config)
-                            sendDebugLog("✅ Added connection: $relayUrl for ${config.name}")
+                            try {
+                                connectToRelay(relayUrl, config)
+                                sendDebugLog("✅ Added connection: $relayUrl for ${config.name}")
+                            } catch (e: Exception) {
+                                sendDebugLog("⚠️ Error adding connection $relayUrl: ${e.message}")
+                            }
                         }
                     }
                 }
@@ -633,34 +747,51 @@ class PubSubService : Service() {
             // Update existing connections that might have configuration changes
             val existingRelays = currentRelayUrls.intersect(expectedRelayUrls)
             existingRelays.forEach { relayUrl ->
-                val connection = relayConnections[relayUrl]
-                val currentConfig = enabledConfigurations.find { it.relayUrls.contains(relayUrl) }
-                
-                if (connection != null && currentConfig != null) {
-                    // Check if this connection's configuration has changed
-                    if (connection.configurationId != currentConfig.id) {
-                        sendDebugLog("🔄 Configuration changed for $relayUrl, resubscribing...")
-                        
-                        // Close old subscription
-                        connection.subscriptionId?.let { subId ->
-                            connection.webSocket?.send(NostrMessage.createClose(subId))
-                            subscriptionManager.removeSubscription(subId)
+                try {
+                    val connection = relayConnections[relayUrl]
+                    val currentConfig = enabledConfigurations.find { it.relayUrls.contains(relayUrl) }
+                    
+                    if (connection != null && currentConfig != null) {
+                        // Check if this connection's configuration has changed
+                        if (connection.configurationId != currentConfig.id) {
+                            sendDebugLog("🔄 Configuration changed for $relayUrl, resubscribing...")
+                            
+                            // Close old subscription
+                            connection.subscriptionId?.let { subId ->
+                                try {
+                                    connection.webSocket?.send(NostrMessage.createClose(subId))
+                                    subscriptionManager.removeSubscription(subId)
+                                } catch (e: Exception) {
+                                    sendDebugLog("⚠️ Error closing old subscription: ${e.message}")
+                                }
+                            }
+                            
+                            // Update connection config ID and resubscribe
+                            try {
+                                val updatedConnection = connection.copy(configurationId = currentConfig.id)
+                                relayConnections[relayUrl] = updatedConnection
+                                subscribeToEvents(updatedConnection, currentConfig)
+                            } catch (e: Exception) {
+                                sendDebugLog("⚠️ Error resubscribing to $relayUrl: ${e.message}")
+                            }
                         }
-                        
-                        // Update connection config ID and resubscribe
-                        val updatedConnection = connection.copy(configurationId = currentConfig.id)
-                        relayConnections[relayUrl] = updatedConnection
-                        subscribeToEvents(updatedConnection, currentConfig)
                     }
+                } catch (e: Exception) {
+                    sendDebugLog("⚠️ Error updating existing connection $relayUrl: ${e.message}")
                 }
             }
             
             // Clean up any orphaned subscriptions
             cleanupOrphanedSubscriptions()
             
-            // Log updated stats
-            logServiceStats()
-            sendDebugLog("✅ Configuration sync completed")
+                // Log updated stats
+                logServiceStats()
+                sendDebugLog("✅ Configuration sync completed")
+            } catch (e: Exception) {
+                sendDebugLog("❌ Error during configuration sync: ${e.message}")
+                Log.e(TAG, "syncConfigurations failed", e)
+                // Don't crash the service, just log the error
+            }
         }
     }
 

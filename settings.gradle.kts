@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Pushu"
+rootProject.name = "PubSub"
 include(":app")
