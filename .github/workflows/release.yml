@@ -90,6 +90,10 @@ jobs:
           ./gradlew assembleRelease --stacktrace
         env:
           JAVA_HOME: ${{ env.JAVA_HOME }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       # Extract changelog entry for the version
       - name: Extract changelog
@@ -125,7 +129,34 @@ jobs:
       # Create GitHub release with APK
       - name: Create Release
         run: |
-          APK_PATH="app/build/outputs/apk/release/app-release-unsigned.apk"
+          # Use signed APK if secrets are available, otherwise unsigned
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            APK_PATH="app/build/outputs/apk/release/app-release.apk"
+            echo "Using signed APK: $APK_PATH"
+          else
+            APK_PATH="app/build/outputs/apk/release/app-release-unsigned.apk"
+            echo "Using unsigned APK: $APK_PATH (signing secrets not available)"
+          fi
+          
+          # Verify APK exists and show info
+          if [ ! -f "$APK_PATH" ]; then
+            echo "❌ APK not found at: $APK_PATH"
+            echo "Available files in release directory:"
+            ls -la app/build/outputs/apk/release/ || echo "Release directory not found"
+            exit 1
+          fi
+          
+          echo "✅ APK found: $APK_PATH"
+          echo "APK size: $(ls -lh "$APK_PATH" | awk '{print $5}')"
+          
+          # Check if release already exists and delete it
+          if gh release view "v${{ env.VERSION }}" >/dev/null 2>&1; then
+            echo "⚠️  Release v${{ env.VERSION }} already exists. Deleting..."
+            gh release delete "v${{ env.VERSION }}" --yes || true
+            echo "✅ Existing release deleted"
+          fi
+          
+          # Create new release
           if [ "${{ env.IS_PRERELEASE }}" = "true" ]; then
             gh release create "v${{ env.VERSION }}" \
               --title "Release v${{ env.VERSION }}" \

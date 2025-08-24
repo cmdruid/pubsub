@@ -1,3 +1,6 @@
+import java.util.Base64
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -19,11 +22,26 @@ android {
 
     signingConfigs {
         create("release") {
-            // You'll need to create a keystore file and update these values
-            // storeFile = file("path/to/your/keystore.jks")
-            // storePassword = "your_store_password"
-            // keyAlias = "your_key_alias"
-            // keyPassword = "your_key_password"
+            // Local signing (when keystore file exists)
+            val keystoreFile = rootProject.file("pubsub-release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = project.findProperty("KEYSTORE_PASSWORD") as String? ?: ""
+                keyAlias = project.findProperty("KEY_ALIAS") as String? ?: ""
+                keyPassword = project.findProperty("KEY_PASSWORD") as String? ?: ""
+            } 
+            // CI/CD signing (using environment variables)
+            else if (System.getenv("KEYSTORE_BASE64") != null) {
+                val keystoreData = System.getenv("KEYSTORE_BASE64")
+                val keystoreBytes = Base64.getDecoder().decode(keystoreData)
+                val keystoreTempFile = File.createTempFile("keystore", ".keystore")
+                keystoreTempFile.writeBytes(keystoreBytes)
+                
+                storeFile = keystoreTempFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
         }
     }
 
@@ -41,7 +59,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     
