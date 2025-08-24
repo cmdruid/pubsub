@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.0.0] - TBD
+## [0.9.1]
 
-### Added
+- Refactored nostr utility methods.
+- Fixed numerous issues regarding subscription handling.
+
+## [0.9.0]
+
 - Initial release of application
