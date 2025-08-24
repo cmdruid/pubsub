@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 /**
  * Represents a Nostr filter as defined in NIP-01
- * Enhanced with additional tag support and validation
+ * Enhanced with builder pattern, validation, and advanced filtering
  */
 data class NostrFilter(
     @SerializedName("ids")
@@ -107,8 +107,49 @@ data class NostrFilter(
         
         return if (parts.isEmpty()) "No filters" else parts.joinToString(" • ")
     }
+    
+    /**
+     * Validate filter constraints (beyond just non-empty check)
+     */
+    fun isValidConstraints(): Boolean {
+        return try {
+            // Validate timestamp ranges
+            if (since != null && until != null && since!! >= until!!) {
+                return false // Invalid time range
+            }
+            
+            // Validate limit
+            if (limit != null && limit!! <= 0) {
+                return false // Invalid limit
+            }
+            
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * Estimate the filter complexity/size for relay optimization
+     */
+    fun estimateComplexity(): Int {
+        var complexity = 0
+        ids?.let { complexity += it.size }
+        authors?.let { complexity += it.size }
+        kinds?.let { complexity += it.size }
+        eventRefs?.let { complexity += it.size }
+        pubkeyRefs?.let { complexity += it.size }
+        hashtags?.let { complexity += it.size }
+        dTags?.let { complexity += it.size }
+        
+        return complexity
+    }
 
     companion object {
+        /**
+         * Create filter builder
+         */
+        fun builder(): FilterBuilder = FilterBuilder()
         /**
          * Create a filter for mentions of a specific pubkey
          */
@@ -165,5 +206,77 @@ data class NostrFilter(
             const val CHANNEL_HIDE_MESSAGE = 43
             const val CHANNEL_MUTE_USER = 44
         }
+    }
+}
+
+/**
+ * Builder class for creating complex filters with type safety
+ */
+class FilterBuilder {
+    private var ids: MutableList<String>? = null
+    private var authors: MutableList<String>? = null
+    private var kinds: MutableList<Int>? = null
+    private var eventRefs: MutableList<String>? = null
+    private var pubkeyRefs: MutableList<String>? = null
+    private var hashtags: MutableList<String>? = null
+    private var dTags: MutableList<String>? = null
+    private var since: Long? = null
+    private var until: Long? = null
+    private var limit: Int? = null
+    private var search: String? = null
+    
+    fun ids(vararg eventIds: String) = apply {
+        if (ids == null) ids = mutableListOf()
+        ids!!.addAll(eventIds)
+    }
+    
+    fun authors(vararg pubkeys: String) = apply {
+        if (authors == null) authors = mutableListOf()
+        authors!!.addAll(pubkeys)
+    }
+    
+    fun kinds(vararg eventKinds: Int) = apply {
+        if (kinds == null) kinds = mutableListOf()
+        kinds!!.addAll(eventKinds.toList())
+    }
+    
+    fun eventRefs(vararg eventIds: String) = apply {
+        if (eventRefs == null) eventRefs = mutableListOf()
+        eventRefs!!.addAll(eventIds)
+    }
+    
+    fun pubkeyRefs(vararg pubkeys: String) = apply {
+        if (pubkeyRefs == null) pubkeyRefs = mutableListOf()
+        pubkeyRefs!!.addAll(pubkeys)
+    }
+    
+    fun hashtags(vararg tags: String) = apply {
+        if (hashtags == null) hashtags = mutableListOf()
+        hashtags!!.addAll(tags)
+    }
+    
+    fun since(timestamp: Long) = apply { this.since = timestamp }
+    fun until(timestamp: Long) = apply { this.until = timestamp }
+    fun limit(count: Int) = apply { this.limit = count }
+    fun search(query: String) = apply { this.search = query }
+    
+    fun textNotesOnly() = apply { kinds(NostrEvent.KIND_TEXT_NOTE) }
+    fun metadataOnly() = apply { kinds(NostrEvent.KIND_METADATA) }
+    fun reactionsOnly() = apply { kinds(NostrEvent.KIND_REACTION) }
+    
+    fun build(): NostrFilter {
+        return NostrFilter(
+            ids = ids?.toList(),
+            authors = authors?.toList(),
+            kinds = kinds?.toList(),
+            eventRefs = eventRefs?.toList(),
+            pubkeyRefs = pubkeyRefs?.toList(),
+            hashtags = hashtags?.toList(),
+            dTags = dTags?.toList(),
+            since = since,
+            until = until,
+            limit = limit,
+            search = search
+        )
     }
 }

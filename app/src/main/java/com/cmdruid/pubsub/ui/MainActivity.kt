@@ -152,6 +152,15 @@ class MainActivity : AppCompatActivity() {
             
 
             
+            refreshConnectionsButton.setOnClickListener {
+                if (configurationManager.isServiceRunning) {
+                    refreshServiceConnections()
+                    Toast.makeText(this@MainActivity, "Refreshing connections...", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Service is not running", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
             clearLogsButton.setOnClickListener {
                 configurationManager.clearDebugLogs()
                 refreshDebugLogs()
@@ -273,6 +282,32 @@ class MainActivity : AppCompatActivity() {
         updateServiceStatus()
         refreshConfigurations()
         refreshDebugLogs()
+        
+        // Refresh WebSocket connections if service is running
+        if (configurationManager.isServiceRunning) {
+            refreshServiceConnections()
+        }
+    }
+    
+    /**
+     * Refresh service WebSocket connections to ensure they're active
+     */
+    private fun refreshServiceConnections() {
+        try {
+            val serviceIntent = Intent(this, PubSubService::class.java).apply {
+                action = "REFRESH_CONNECTIONS"
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+            
+            configurationManager.addDebugLog("🔄 Requested connection refresh")
+        } catch (e: Exception) {
+            configurationManager.addDebugLog("❌ Failed to refresh connections: ${e.message}")
+        }
     }
     
     /**

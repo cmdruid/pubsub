@@ -34,19 +34,6 @@ android {
             isDebuggable = true
         }
         
-        create("beta") {
-            initWith(getByName("release"))
-            applicationIdSuffix = ".beta"
-            versionNameSuffix = "-beta"
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-            signingConfig = signingConfigs.getByName("debug")
-        }
-        
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -59,12 +46,17 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "21"
+    }
+    
+    // Configure Java 21 compatibility
+    androidResources {
+        noCompress += "txt"
     }
     
     buildFeatures {
@@ -110,6 +102,8 @@ dependencies {
     
     // Lifecycle components
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
+    
+    // Enhanced Nostr implementation with Quartz-inspired patterns
     
     // Testing
     testImplementation("junit:junit:4.13.2")

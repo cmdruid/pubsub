@@ -221,12 +221,28 @@
 
                         </LinearLayout>
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/clearLogsButton"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Clear"
-                            style="@style/Widget.App.Button.Outlined" />
+                            android:orientation="horizontal"
+                            android:layout_marginStart="8dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/refreshConnectionsButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Refresh"
+                                android:layout_marginEnd="8dp"
+                                style="@style/Widget.App.Button.Outlined" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/clearLogsButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Clear"
+                                style="@style/Widget.App.Button.Outlined" />
+
+                        </LinearLayout>
 
                     </LinearLayout>
 

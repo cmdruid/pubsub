@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# DEPRECATED: Beta build type has been removed. Use Google Play Console testing tracks instead.
+# Use: ./script/release.sh --skip-tag  (for local build)
+# Or: ./script/release.sh 1.0.0 (for release with git tag)
+# Then upload to Google Play Console internal/closed testing for beta distribution
+#
 # Script to build beta version of PubSub app for closed beta testing
 # This creates a separate app that can be installed alongside the production version
 
