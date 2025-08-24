@@ -28,28 +28,57 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+        
+      # Verify Java installation and set JAVA_HOME
+      - name: Verify Java installation
+        run: |
+          echo "JAVA_HOME: $JAVA_HOME"
+          java -version
+          echo "Setting JAVA_HOME for Gradle"
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
+          echo "Current gradle.properties content:"
+          cat gradle.properties
+          echo "Environment variables:"
+          env | grep -i java || true
           
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         
+      # Cache Gradle packages (with Java 21 fix)
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          key: ${{ runner.os }}-gradle-java21-fix-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
+            ${{ runner.os }}-gradle-java21-fix-
             ${{ runner.os }}-gradle-
             
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
         
+      # Clear Gradle daemon and check setup
+      - name: Clear Gradle daemon and check setup
+        run: |
+          echo "Stopping any existing Gradle daemons:"
+          ./gradlew --stop || true
+          echo "Gradle wrapper version:"
+          ./gradlew --version
+          echo "Java version being used by Gradle:"
+          ./gradlew -q javaToolchains || echo "javaToolchains task not available"
+        
       - name: Run tests
         run: ./gradlew test
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         
       - name: Build debug APK
         run: ./gradlew assembleDebug
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
