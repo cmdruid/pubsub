@@ -10,6 +10,7 @@ set -e  # Exit on any error
 SKIP_BUILD=false
 SKIP_TAG=false
 FORCE_TAG=false
+GITHUB_ONLY=false
 VERSION=""
 
 # Parse command line arguments
@@ -27,6 +28,11 @@ for arg in "$@"; do
             FORCE_TAG=true
             shift
             ;;
+        --github-only)
+            GITHUB_ONLY=true
+            SKIP_BUILD=true
+            shift
+            ;;
         --help|-h)
             echo "PubSub Android Release Script"
             echo ""
@@ -39,6 +45,7 @@ for arg in "$@"; do
             echo "  --skip-build            Skip the build process, only create/push git tag"
             echo "  --skip-tag              Skip git tag creation, only build"
             echo "  --force-tag             Force recreate tag if it already exists (non-interactive)"
+            echo "  --github-only           Skip local build, only create tag for GitHub Actions"
             echo "  --help, -h              Show this help message"
             echo ""
             echo "Examples:"
@@ -46,6 +53,7 @@ for arg in "$@"; do
             echo "  ./script/release.sh --skip-build             # Only create git tag"
             echo "  ./script/release.sh 1.3.0 --skip-tag        # Build only, no git tag"
             echo "  ./script/release.sh 0.9.1 --force-tag       # Force recreate existing tag"
+            echo "  ./script/release.sh 0.9.1 --github-only     # Only create tag, let GitHub build"
             exit 0
             ;;
         -*)
@@ -166,6 +174,9 @@ fi
 # Build phase
 if [ "$SKIP_BUILD" = false ]; then
     build_release
+elif [ "$GITHUB_ONLY" = true ]; then
+    echo "⏭️  Skipping local build (--github-only specified)"
+    echo "   GitHub Actions will build and sign the APK automatically"
     
     echo ""
     echo "📋 Next steps:"

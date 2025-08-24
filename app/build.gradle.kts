@@ -26,9 +26,30 @@ android {
             val keystoreFile = rootProject.file("pubsub-release.keystore")
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = project.findProperty("KEYSTORE_PASSWORD") as String? ?: ""
-                keyAlias = project.findProperty("KEY_ALIAS") as String? ?: ""
-                keyPassword = project.findProperty("KEY_PASSWORD") as String? ?: ""
+                
+                // Load environment variables from .env file if it exists
+                val envFile = rootProject.file(".env")
+                val envMap = mutableMapOf<String, String>()
+                
+                if (envFile.exists()) {
+                    envFile.readLines().forEach { line ->
+                        if (line.isNotBlank() && !line.startsWith("#") && line.contains("=")) {
+                            val (key, value) = line.split("=", limit = 2)
+                            envMap[key.trim()] = value.trim()
+                        }
+                    }
+                }
+                
+                // Get passwords from .env file, environment variables, or project properties
+                storePassword = envMap["KEYSTORE_PASSWORD"] 
+                    ?: System.getenv("KEYSTORE_PASSWORD") 
+                    ?: project.findProperty("KEYSTORE_PASSWORD") as String? ?: ""
+                keyAlias = envMap["KEY_ALIAS"] 
+                    ?: System.getenv("KEY_ALIAS") 
+                    ?: project.findProperty("KEY_ALIAS") as String? ?: ""
+                keyPassword = envMap["KEY_PASSWORD"] 
+                    ?: System.getenv("KEY_PASSWORD") 
+                    ?: project.findProperty("KEY_PASSWORD") as String? ?: ""
             } 
             // CI/CD signing (using environment variables)
             else if (System.getenv("KEYSTORE_BASE64") != null) {

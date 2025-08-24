@@ -121,6 +121,7 @@ firebase-debug.*.log
 secrets.properties
 api_keys.properties
 *.env
+.env.local
 
 # Database files
 *.db
