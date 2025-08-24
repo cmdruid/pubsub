@@ -9,6 +9,7 @@ set -e  # Exit on any error
 # Default values
 SKIP_BUILD=false
 SKIP_TAG=false
+FORCE_TAG=false
 VERSION=""
 
 # Parse command line arguments
@@ -22,6 +23,10 @@ for arg in "$@"; do
             SKIP_TAG=true
             shift
             ;;
+        --force-tag)
+            FORCE_TAG=true
+            shift
+            ;;
         --help|-h)
             echo "PubSub Android Release Script"
             echo ""
@@ -33,12 +38,14 @@ for arg in "$@"; do
             echo "Options:"
             echo "  --skip-build            Skip the build process, only create/push git tag"
             echo "  --skip-tag              Skip git tag creation, only build"
+            echo "  --force-tag             Force recreate tag if it already exists (non-interactive)"
             echo "  --help, -h              Show this help message"
             echo ""
             echo "Examples:"
             echo "  ./script/release.sh 1.2.0                    # Release build with version 1.2.0"
             echo "  ./script/release.sh --skip-build             # Only create git tag"
             echo "  ./script/release.sh 1.3.0 --skip-tag        # Build only, no git tag"
+            echo "  ./script/release.sh 0.9.1 --force-tag       # Force recreate existing tag"
             exit 0
             ;;
         -*)
@@ -103,12 +110,12 @@ update_gradle_version() {
 check_keystore() {
     if [ ! -f "pubsub-release.keystore" ]; then
         echo "⚠️  Keystore not found!"
-        echo "   Run ./script/generate_keystore.sh first to create your signing keystore."
+        echo "   Run ./script/keystore.sh first to create your signing keystore."
         echo ""
         read -p "Do you want to generate the keystore now? (y/n): " -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            ./script/generate_keystore.sh
+            ./script/keystore.sh
         else
             echo "❌ Cannot build release without keystore. Exiting."
             exit 1
@@ -178,22 +185,66 @@ if [ "$SKIP_TAG" = false ]; then
     # Check if tag already exists remotely
     echo "🔍 Checking if tag $TAG already exists on remote..."
     if check_tag_exists "$TAG"; then
-        echo "❌ Tag $TAG already exists on remote!"
-        exit 1
+        echo "⚠️  Tag $TAG already exists on remote!"
+        
+        if [ "$FORCE_TAG" = true ]; then
+            echo "🔄 --force-tag specified, recreating tag..."
+            echo "🗑️  Deleting existing tag locally and remotely..."
+            git tag -d "$TAG" 2>/dev/null || true
+            git push origin --delete "$TAG" 2>/dev/null || true
+            echo "🏷️  Will recreate and push tag: $TAG"
+        else
+            echo ""
+            echo "This could mean:"
+            echo "  1. Release was already completed successfully"
+            echo "  2. GitHub Actions failed after tag creation"
+            echo "  3. Tag was created manually"
+            echo ""
+            echo "Options:"
+            echo "  [r] Recreate tag (delete and push again) - triggers new GitHub Actions"
+            echo "  [s] Skip tag creation (build only)"
+            echo "  [a] Abort release process"
+            echo ""
+            read -p "What would you like to do? (r/s/a): " -n 1 -r
+            echo ""
+            
+            case $REPLY in
+                [Rr])
+                    echo "🗑️  Deleting existing tag locally and remotely..."
+                    git tag -d "$TAG" 2>/dev/null || true
+                    git push origin --delete "$TAG" 2>/dev/null || true
+                    echo "🏷️  Recreating and pushing tag: $TAG"
+                    ;;
+                [Ss])
+                    echo "⏭️  Skipping tag creation..."
+                    SKIP_TAG=true
+                    ;;
+                [Aa]|*)
+                    echo "❌ Release aborted."
+                    exit 1
+                    ;;
+            esac
+        fi
     fi
     
-    echo "✅ No existing tag found for $TAG"
-    echo "🏷️  Creating and pushing tag: $TAG"
-    
-    # Create and push tag
-    git tag "$TAG" && git push origin "$TAG"
-    
-    if [ $? -eq 0 ]; then
-        echo "✅ Successfully created and pushed tag: $TAG"
-        echo "🚀 GitHub Action should now be running for the release"
-    else
-        echo "❌ Failed to create/push tag"
-        exit 1
+    if [ "$SKIP_TAG" = false ]; then
+        if check_tag_exists "$TAG"; then
+            echo "🏷️  Recreating and pushing tag: $TAG"
+        else
+            echo "✅ No existing tag found for $TAG"
+            echo "🏷️  Creating and pushing tag: $TAG"
+        fi
+        
+        # Create and push tag
+        git tag "$TAG" && git push origin "$TAG"
+        
+        if [ $? -eq 0 ]; then
+            echo "✅ Successfully created and pushed tag: $TAG"
+            echo "🚀 GitHub Action should now be running for the release"
+        else
+            echo "❌ Failed to create/push tag"
+            exit 1
+        fi
     fi
 fi
 
