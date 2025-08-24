@@ -21,6 +21,15 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+        
+      # Verify Java installation and set JAVA_HOME
+      - name: Verify Java installation
+        run: |
+          echo "JAVA_HOME: $JAVA_HOME"
+          java -version
+          echo "Setting JAVA_HOME for Gradle"
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
 
       # Setup Android SDK
       - name: Setup Android SDK
@@ -40,6 +49,14 @@ jobs:
       # Grant execute permission for gradlew
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+        
+      # Check Gradle wrapper and Java setup
+      - name: Check Gradle setup
+        run: |
+          echo "Gradle wrapper version:"
+          ./gradlew --version
+          echo "Java version being used by Gradle:"
+          ./gradlew -q javaToolchains
 
       # Parse git tag and determine version
       - name: Parse tag and set version
@@ -61,7 +78,11 @@ jobs:
 
       # Build release APK
       - name: Build release APK
-        run: ./gradlew assembleRelease
+        run: |
+          echo "Building release APK with Java: $JAVA_HOME"
+          ./gradlew assembleRelease --stacktrace
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
 
       # Extract changelog entry for the version
       - name: Extract changelog
