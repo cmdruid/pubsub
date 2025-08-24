@@ -2,6 +2,7 @@ package com.cmdruid.pubsub.ui
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -13,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.service.PubSubService
 import com.cmdruid.pubsub.databinding.ActivityConfigurationEditorBinding
 import com.cmdruid.pubsub.nostr.NostrFilter
 import com.cmdruid.pubsub.ui.adapters.RelayUrlAdapter
@@ -56,7 +58,6 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         setupToolbar()
         setupRelayUrlsRecyclerView()
         setupFilterRecyclerViews()
-        setupTimestampFields()
         setupUI()
         
         if (isEditMode) {
@@ -137,46 +138,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         }
     }
     
-    private fun setupTimestampFields() {
-        // Since field timestamp display
-        binding.sinceEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                updateTimestampDisplay(s.toString(), binding.sinceDateText)
-            }
-        })
-        
-        // Until field timestamp display
-        binding.untilEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                updateTimestampDisplay(s.toString(), binding.untilDateText)
-            }
-        })
-        
-        // Now buttons
-        binding.sinceNowButton.setOnClickListener {
-            val now = NostrUtils.getCurrentTimestamp()
-            binding.sinceEditText.setText(now.toString())
-        }
-        
-        binding.untilNowButton.setOnClickListener {
-            val now = NostrUtils.getCurrentTimestamp()
-            binding.untilEditText.setText(now.toString())
-        }
-    }
-    
-    private fun updateTimestampDisplay(timestampStr: String, textView: android.widget.TextView) {
-        if (NostrUtils.isValidTimestamp(timestampStr)) {
-            val timestamp = timestampStr.toLong()
-            textView.text = NostrUtils.formatTimestamp(timestamp)
-            textView.visibility = View.VISIBLE
-        } else {
-            textView.visibility = View.GONE
-        }
-    }
+
     
     private fun setupUI() {
         binding.apply {
@@ -221,9 +183,6 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         hashtagsAdapter.setEntries(filter.hashtags ?: emptyList())
         
         // Load simple fields
-        binding.searchEditText.setText(filter.search ?: "")
-        binding.sinceEditText.setText(filter.since?.toString() ?: "")
-        binding.untilEditText.setText(filter.until?.toString() ?: "")
         binding.limitEditText.setText(filter.limit?.toString() ?: "")
     }
     
@@ -289,7 +248,31 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.subscription_saved), Toast.LENGTH_SHORT).show()
         }
         
+        // Notify service to sync configurations if it's running
+        if (configurationManager.isServiceRunning) {
+            syncServiceConfigurations()
+        }
+        
         finish()
+    }
+    
+    /**
+     * Sync service configurations with current enabled configurations
+     */
+    private fun syncServiceConfigurations() {
+        try {
+            val serviceIntent = Intent(this, PubSubService::class.java).apply {
+                action = "SYNC_CONFIGURATIONS"
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            // Silently handle errors - this is not critical for the UI flow
+        }
     }
     
     private fun buildNostrFilter(): NostrFilter {
@@ -301,9 +284,6 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         val hashtags = hashtagsAdapter.getEntries().takeIf { it.isNotEmpty() }
         
         // Get simple field values
-        val search = binding.searchEditText.text.toString().trim().takeIf { it.isNotBlank() }
-        val since = binding.sinceEditText.text.toString().trim().toLongOrNull()
-        val until = binding.untilEditText.text.toString().trim().toLongOrNull()
         val limit = binding.limitEditText.text.toString().trim().toIntOrNull()
         
         return NostrFilter(
@@ -312,9 +292,9 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             pubkeyRefs = pubkeyRefs,
             eventRefs = eventRefs,
             hashtags = hashtags,
-            search = search,
-            since = since,
-            until = until,
+            search = null, // Removed text search
+            since = null, // Will be auto-updated by service
+            until = null, // Removed time range
             limit = limit
         )
     }

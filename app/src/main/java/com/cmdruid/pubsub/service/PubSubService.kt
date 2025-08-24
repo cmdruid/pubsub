@@ -114,6 +114,11 @@ class PubSubService : Service() {
                 refreshConnections()
                 return START_STICKY
             }
+            "SYNC_CONFIGURATIONS" -> {
+                sendDebugLog("🔄 Configuration sync requested")
+                syncConfigurations()
+                return START_STICKY
+            }
             else -> {
                 sendDebugLog("🚀 Service started")
                 startForeground(NOTIFICATION_ID, createForegroundNotification())
@@ -266,13 +271,13 @@ class PubSubService : Service() {
             return
         }
         
-        // Check if we should update the "since" timestamp for resubscription
-        val existingSubscriptionId = connection.subscriptionId
-        val filterToUse = if (existingSubscriptionId != null) {
+        // Always update the "since" timestamp to get only new events
+        val filterToUse = if (connection.subscriptionId != null) {
             // This is a resubscription - use updated filter with latest timestamp
-            subscriptionManager.createResubscriptionFilter(existingSubscriptionId) ?: configuration.filter
+            subscriptionManager.createResubscriptionFilter(connection.subscriptionId!!) ?: createInitialFilter(configuration.filter)
         } else {
-            configuration.filter
+            // New subscription - set "since" to current time to get only new events
+            createInitialFilter(configuration.filter)
         }
         
         // Create new subscription with the subscription manager
@@ -291,6 +296,14 @@ class PubSubService : Service() {
         sendDebugLog("🆔 Subscription ID: $subscriptionId")
         
         connection.webSocket?.send(subscriptionMessage)
+    }
+    
+    /**
+     * Create initial filter with "since" set to current time for new subscriptions
+     */
+    private fun createInitialFilter(baseFilter: NostrFilter): NostrFilter {
+        val currentTimestamp = System.currentTimeMillis() / 1000 // Convert to Unix timestamp
+        return baseFilter.copy(since = currentTimestamp)
     }
     
     private fun handleWebSocketMessage(messageText: String, configuration: Configuration) {
@@ -563,13 +576,106 @@ class PubSubService : Service() {
     }
     
     /**
+     * Synchronize active subscriptions with current enabled configurations
+     * This handles adding new subscriptions and removing disabled ones
+     */
+    private fun syncConfigurations() {
+        CoroutineScope(Dispatchers.IO).launch {
+            sendDebugLog("🔄 Synchronizing configurations with active subscriptions...")
+            
+            val enabledConfigurations = configurationManager.getEnabledConfigurations()
+            val currentRelayUrls = relayConnections.keys.toSet()
+            
+            // Build set of relay URLs that should be active based on enabled configurations
+            val expectedRelayUrls = mutableSetOf<String>()
+            enabledConfigurations.forEach { config ->
+                expectedRelayUrls.addAll(config.relayUrls)
+            }
+            
+            // Remove connections for disabled configurations
+            val relaysToRemove = currentRelayUrls - expectedRelayUrls
+            if (relaysToRemove.isNotEmpty()) {
+                sendDebugLog("🗑️ Removing ${relaysToRemove.size} disabled subscription(s)")
+                relaysToRemove.forEach { relayUrl ->
+                    val connection = relayConnections[relayUrl]
+                    if (connection != null) {
+                        // Send close message if subscription exists
+                        connection.subscriptionId?.let { subId ->
+                            connection.webSocket?.send(NostrMessage.createClose(subId))
+                            subscriptionManager.removeSubscription(subId)
+                            sendDebugLog("🛑 Closed subscription: ${subId.take(8)}... for $relayUrl")
+                        }
+                        
+                        // Cancel reconnect job and close connection
+                        connection.reconnectJob?.cancel()
+                        connection.webSocket?.close(1000, "Configuration disabled")
+                        relayConnections.remove(relayUrl)
+                        
+                        sendDebugLog("❌ Removed connection: $relayUrl")
+                    }
+                }
+            }
+            
+            // Add connections for newly enabled configurations
+            val relaysToAdd = expectedRelayUrls - currentRelayUrls
+            if (relaysToAdd.isNotEmpty()) {
+                sendDebugLog("➕ Adding ${relaysToAdd.size} new subscription(s)")
+                enabledConfigurations.forEach { config ->
+                    config.relayUrls.forEach { relayUrl ->
+                        if (relayUrl in relaysToAdd) {
+                            connectToRelay(relayUrl, config)
+                            sendDebugLog("✅ Added connection: $relayUrl for ${config.name}")
+                        }
+                    }
+                }
+            }
+            
+            // Update existing connections that might have configuration changes
+            val existingRelays = currentRelayUrls.intersect(expectedRelayUrls)
+            existingRelays.forEach { relayUrl ->
+                val connection = relayConnections[relayUrl]
+                val currentConfig = enabledConfigurations.find { it.relayUrls.contains(relayUrl) }
+                
+                if (connection != null && currentConfig != null) {
+                    // Check if this connection's configuration has changed
+                    if (connection.configurationId != currentConfig.id) {
+                        sendDebugLog("🔄 Configuration changed for $relayUrl, resubscribing...")
+                        
+                        // Close old subscription
+                        connection.subscriptionId?.let { subId ->
+                            connection.webSocket?.send(NostrMessage.createClose(subId))
+                            subscriptionManager.removeSubscription(subId)
+                        }
+                        
+                        // Update connection config ID and resubscribe
+                        val updatedConnection = connection.copy(configurationId = currentConfig.id)
+                        relayConnections[relayUrl] = updatedConnection
+                        subscribeToEvents(updatedConnection, currentConfig)
+                    }
+                }
+            }
+            
+            // Clean up any orphaned subscriptions
+            cleanupOrphanedSubscriptions()
+            
+            // Log updated stats
+            logServiceStats()
+            sendDebugLog("✅ Configuration sync completed")
+        }
+    }
+
+    /**
      * Refresh all WebSocket connections - useful when app is reopened after reinstall/restart
+     * Enhanced to also sync configurations
      */
     private fun refreshConnections() {
         CoroutineScope(Dispatchers.IO).launch {
             sendDebugLog("🔄 Refreshing all WebSocket connections...")
             
-            // First, check connection health
+            // First, sync configurations to ensure we have the right subscriptions
+            syncConfigurations()
+            
+            // Then check connection health for remaining connections
             val staleConnections = mutableListOf<String>()
             
             relayConnections.forEach { (relayUrl, connection) ->

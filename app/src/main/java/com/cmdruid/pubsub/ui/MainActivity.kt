@@ -116,6 +116,13 @@ class MainActivity : AppCompatActivity() {
             onEnabledChanged = { configuration, enabled ->
                 val updatedConfiguration = configuration.copy(isEnabled = enabled)
                 configurationManager.updateConfiguration(updatedConfiguration)
+                
+                // Notify service to sync configurations if it's running
+                if (configurationManager.isServiceRunning) {
+                    syncServiceConfigurations()
+                }
+                
+                updateServiceStatus()
             }
         )
         
@@ -254,6 +261,12 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Are you sure you want to delete \"${configuration.name}\"?")
             .setPositiveButton("Delete") { _, _ ->
                 configurationManager.deleteConfiguration(configuration.id)
+                
+                // Notify service to sync configurations if it's running
+                if (configurationManager.isServiceRunning) {
+                    syncServiceConfigurations()
+                }
+                
                 refreshConfigurations()
                 updateServiceStatus()
                 Toast.makeText(this, "@string/subscription_deleted", Toast.LENGTH_SHORT).show()
@@ -291,6 +304,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    /**
+     * Sync service configurations with current enabled configurations
+     */
+    private fun syncServiceConfigurations() {
+        try {
+            val serviceIntent = Intent(this, PubSubService::class.java).apply {
+                action = "SYNC_CONFIGURATIONS"
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+            
+            configurationManager.addDebugLog("🔄 Requested configuration sync")
+        } catch (e: Exception) {
+            configurationManager.addDebugLog("❌ Failed to sync configurations: ${e.message}")
+        }
+    }
+
     /**
      * Refresh service WebSocket connections to ensure they're active
      */
