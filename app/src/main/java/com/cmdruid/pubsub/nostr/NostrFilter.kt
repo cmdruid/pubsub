@@ -44,7 +44,7 @@ data class NostrFilter(
     val limit: Int? = null,
     
     @SerializedName("search")
-    val search: String? = null
+    val search: String? = null // NIP-50: Full-text search (not widely supported by relays)
 ) {
     /**
      * Check if this filter is valid and has at least one filtering criteria

@@ -262,13 +262,24 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         }
         
         // Create or update configuration
-        val configuration = Configuration(
-            id = configurationId ?: "",
-            name = name,
-            relayUrls = relayUrls,
-            filter = filter,
-            targetUri = targetUri
-        )
+        val configuration = if (isEditMode) {
+            // For edit mode, use the existing configurationId
+            Configuration(
+                id = configurationId ?: throw IllegalStateException("Configuration ID should not be null in edit mode"),
+                name = name,
+                relayUrls = relayUrls,
+                filter = filter,
+                targetUri = targetUri
+            )
+        } else {
+            // For new configurations, generate a new ID
+            Configuration(
+                name = name,
+                relayUrls = relayUrls,
+                filter = filter,
+                targetUri = targetUri
+            )
+        }
         
         if (isEditMode) {
             configurationManager.updateConfiguration(configuration)
