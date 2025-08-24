@@ -50,6 +50,7 @@ android {
                 keyPassword = envMap["KEY_PASSWORD"] 
                     ?: System.getenv("KEY_PASSWORD") 
                     ?: project.findProperty("KEY_PASSWORD") as String? ?: ""
+
             } 
             // CI/CD signing (using environment variables)
             else if (System.getenv("KEYSTORE_BASE64") != null) {
