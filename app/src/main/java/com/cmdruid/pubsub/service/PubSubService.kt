@@ -14,7 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+
 import com.cmdruid.pubsub.R
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
@@ -654,6 +654,6 @@ class PubSubService : Service() {
         val intent = Intent(MainActivity.ACTION_DEBUG_LOG).apply {
             putExtra(MainActivity.EXTRA_LOG_MESSAGE, message)
         }
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+        sendBroadcast(intent)
     }
 }

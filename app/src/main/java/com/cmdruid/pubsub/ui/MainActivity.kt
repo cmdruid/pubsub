@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.Context.RECEIVER_NOT_EXPORTED
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -15,7 +16,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
 import com.cmdruid.pubsub.data.Configuration
@@ -78,9 +79,10 @@ class MainActivity : AppCompatActivity() {
         refreshDebugLogs()
         
         // Register for debug log broadcasts
-        LocalBroadcastManager.getInstance(this).registerReceiver(
+        registerReceiver(
             debugLogReceiver,
-            IntentFilter(ACTION_DEBUG_LOG)
+            IntentFilter(ACTION_DEBUG_LOG),
+            RECEIVER_NOT_EXPORTED
         )
         
         // Handle deep link if launched via intent
@@ -89,7 +91,7 @@ class MainActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(debugLogReceiver)
+        unregisterReceiver(debugLogReceiver)
     }
     
     override fun onNewIntent(intent: Intent?) {

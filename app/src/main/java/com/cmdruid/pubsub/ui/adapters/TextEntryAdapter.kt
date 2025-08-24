@@ -84,7 +84,7 @@ class TextEntryAdapter(
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                     override fun afterTextChanged(s: Editable?) {
-                        val currentPosition = adapterPosition
+                        val currentPosition = bindingAdapterPosition
                         if (currentPosition != RecyclerView.NO_POSITION && currentPosition < entries.size) {
                             val inputText = s.toString()
                             
@@ -113,7 +113,7 @@ class TextEntryAdapter(
                 textInputEditText.addTextChangedListener(textWatcher)
                 
                 deleteButton.setOnClickListener {
-                    val currentPosition = adapterPosition
+                    val currentPosition = bindingAdapterPosition
                     if (currentPosition != RecyclerView.NO_POSITION) {
                         removeEntry(currentPosition)
                     }

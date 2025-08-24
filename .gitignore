@@ -36,7 +36,7 @@ proguard/
 # Android Studio captures folder
 captures/
 
-# IntelliJ
+# IntelliJ IDEA
 *.iml
 .idea/workspace.xml
 .idea/tasks.xml
@@ -44,11 +44,22 @@ captures/
 .idea/assetWizardSettings.xml
 .idea/dictionaries
 .idea/libraries
-# Android Studio 3 in .gitignore file.
-.idea/caches
+.idea/caches/
 .idea/modules.xml
-# Comment next line if keeping position of elements in Navigation Editor is relevant for you
 .idea/navEditor.xml
+.idea/misc.xml
+.idea/deploymentTargetSelector.xml
+.idea/vcs.xml
+.idea/runConfigurations.xml
+.idea/inspectionProfiles/
+.idea/scopes/
+.idea/codeStyles/
+.idea/markdown-navigator/
+.idea/markdown-navigator.xml
+.idea/markdown-navigator-enh.xml
+.idea/kotlinc.xml
+.idea/androidTestResultsUserPreferences.xml
+.idea/sonarlint/
 
 # Keystore files - NEVER commit these!
 *.jks
@@ -82,3 +93,72 @@ Thumbs.db
 
 # Android Profiling
 *.hprof
+
+# Kotlin
+.kotlin/
+
+# NDK
+obj/
+
+# Backup files
+*.bak
+*.tmp
+
+# Editor files
+*~
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+
+# Secrets and API keys (be extra careful)
+secrets.properties
+api_keys.properties
+*.env
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated documentation
+docs/generated/
+
+# Release preparation
+release-notes.txt
+version.properties
+
+# Lint reports (generated)
+lint-report.*
+lint-results.*
+
+# Gradle Wrapper validation (if downloading from unknown sources)
+!gradle/wrapper/gradle-wrapper.jar
+
+# Test output
+test-results/
+test-outputs/
+
+# Benchmark
+*.benchmark
+
+# Room database schemas (if not needed in VCS)
+# Uncomment if you don't want to track Room schema files
+# app/schemas/
+
+# AGP (Android Gradle Plugin) test results
+agp-test-results/
+
+# Compose compiler reports (if using Jetpack Compose)
+compose_compiler_reports/
+compose-metrics/
+
+# Dependency graph generator
+dependency-graph.dot
+dependency-graph.png

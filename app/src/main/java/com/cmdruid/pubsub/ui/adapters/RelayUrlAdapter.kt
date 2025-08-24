@@ -66,7 +66,7 @@ class RelayUrlAdapter : RecyclerView.Adapter<RelayUrlAdapter.RelayUrlViewHolder>
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                     override fun afterTextChanged(s: Editable?) {
-                        val currentPosition = adapterPosition
+                        val currentPosition = bindingAdapterPosition
                         if (currentPosition != RecyclerView.NO_POSITION && currentPosition < relayUrls.size) {
                             relayUrls[currentPosition] = s.toString()
                         }
@@ -75,7 +75,7 @@ class RelayUrlAdapter : RecyclerView.Adapter<RelayUrlAdapter.RelayUrlViewHolder>
                 relayUrlEditText.addTextChangedListener(textWatcher)
                 
                 deleteButton.setOnClickListener {
-                    val currentPosition = adapterPosition
+                    val currentPosition = bindingAdapterPosition
                     if (currentPosition != RecyclerView.NO_POSITION) {
                         removeRelayUrl(currentPosition)
                     }
