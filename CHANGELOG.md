@@ -3,6 +3,8 @@
 ## [0.9.2]
 
 - Battery optimizations across the board.
+- Fixed issue with hashtags not having a value field.
+- Added keyword filtering.
 
 ## [0.9.1]
 
