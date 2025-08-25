@@ -1,205 +1,135 @@
 #!/bin/bash
 
-# dev.sh - Development helper script for PubSub Android app
-# Checks for running AVD, starts one if needed, builds debug app, and installs it
+# dev.sh - Start Android emulator for PubSub development
+# Simple script to ensure an emulator is running and ready
 
-set -e  # Exit on any error
+set -e
 
-# Colors for output
+# Global variables
+EMULATOR_PID=""
+AVD_NAME=""
+
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Function to check if Android SDK tools are available
-check_android_tools() {
-    print_status "Checking Android SDK tools..."
+# Cleanup on exit
+cleanup() {
+    echo ""
+    info "Shutting down emulator..."
     
-    if ! command -v adb &> /dev/null; then
-        print_error "adb not found. Please install Android SDK and add it to your PATH."
-        exit 1
+    if [ -n "$EMULATOR_PID" ] && kill -0 "$EMULATOR_PID" 2>/dev/null; then
+        adb -s emulator-5554 emu kill 2>/dev/null || true
+        sleep 2
+        kill -TERM "$EMULATOR_PID" 2>/dev/null || true
+        sleep 3
+        kill -KILL "$EMULATOR_PID" 2>/dev/null || true
+        
+        # Clean up any lingering QEMU processes
+        if [ -n "$AVD_NAME" ]; then
+            pgrep -f "qemu-system.*$AVD_NAME" | xargs -r kill -KILL 2>/dev/null || true
+        fi
     fi
     
-    if ! command -v emulator &> /dev/null; then
-        print_error "emulator not found. Please install Android SDK and add it to your PATH."
-        exit 1
-    fi
-    
-    print_success "Android SDK tools found"
+    echo "Emulator stopped."
+    exit 0
 }
 
-# Function to check if any AVD is currently running
-check_avd_running() {
-    print_status "Checking for running Android Virtual Devices..."
-    
-    # Check if any emulator is running by looking for adb devices
-    local running_devices=$(adb devices | grep -v "List of devices" | grep -v "^$" | wc -l)
-    
-    if [ "$running_devices" -gt 0 ]; then
-        print_success "Found $running_devices running device(s)"
-        adb devices
-        return 0
-    else
-        print_warning "No running Android devices found"
-        return 1
-    fi
+trap cleanup SIGINT SIGTERM EXIT
+
+# Check tools
+check_tools() {
+    command -v adb >/dev/null || { error "adb not found. Install Android SDK."; exit 1; }
+    command -v emulator >/dev/null || { error "emulator not found. Install Android SDK."; exit 1; }
 }
 
-# Function to list available AVDs
-list_avds() {
-    print_status "Listing available AVDs..."
-    local avd_list=$(emulator -list-avds)
-    
-    if [ -z "$avd_list" ]; then
-        print_error "No AVDs found. Please create an AVD using Android Studio or avdmanager."
-        print_error "You can create one with: avdmanager create avd -n MyAVD -k \"system-images;android-34;google_apis;x86_64\""
-        exit 1
-    fi
-    
-    echo "$avd_list"
-    return 0
+# Check if device is running
+device_running() {
+    adb devices | grep -q "device$"
 }
 
-# Function to start an AVD
-start_avd() {
-    print_status "Starting an Android Virtual Device..."
+# Start emulator
+start_emulator() {
+    info "Starting Android emulator..."
     
-    # Get list of available AVDs
-    local avd_list=$(emulator -list-avds)
+    # Get first available AVD
+    AVD_NAME=$(emulator -list-avds | head -n 1)
+    [ -z "$AVD_NAME" ] && { error "No AVDs found. Create one in Android Studio."; exit 1; }
     
-    if [ -z "$avd_list" ]; then
-        print_error "No AVDs available to start"
-        exit 1
-    fi
+    info "Starting AVD: $AVD_NAME"
+    export QT_QPA_PLATFORM=xcb
     
-    # Use the first available AVD
-    local first_avd=$(echo "$avd_list" | head -n 1)
-    print_status "Starting AVD: $first_avd"
+    emulator -avd "$AVD_NAME" -no-snapshot-save -no-snapshot-load -accel auto -gpu swiftshader_indirect &
+    EMULATOR_PID=$!
     
-    # Start emulator in background with hardware acceleration
-    emulator -avd "$first_avd" -no-snapshot-save -no-snapshot-load -accel kvm -gpu auto > /dev/null 2>&1 &
-    local emulator_pid=$!
+    sleep 3
+    kill -0 "$EMULATOR_PID" 2>/dev/null || { error "Emulator failed to start"; exit 1; }
     
-    print_status "Emulator started (PID: $emulator_pid). Waiting for device to be ready..."
-    
-    # Wait for device to be ready (max 60 seconds)
-    local timeout=60
+    # Wait for device
+    info "Waiting for emulator to be ready..."
+    local timeout=120
     local elapsed=0
     
     while [ $elapsed -lt $timeout ]; do
-        if adb devices | grep -q "device$"; then
-            print_success "AVD is ready!"
-            # Additional wait to ensure device is fully booted
-            print_status "Waiting for device to fully boot..."
-            sleep 10
+        if device_running; then
+            success "Emulator ready! (Press 'q' to quit)"
+            adb wait-for-device
+            sleep 3
             return 0
         fi
-        sleep 2
-        elapsed=$((elapsed + 2))
+        
         echo -n "."
+        sleep 3
+        elapsed=$((elapsed + 3))
+        
+        [ $((elapsed % 30)) -eq 0 ] && echo "" && info "Still waiting... (${elapsed}/${timeout}s)"
     done
     
-    echo ""
-    print_error "Timeout waiting for AVD to start"
+    error "Timeout waiting for emulator"
     exit 1
 }
 
-# Function to build debug APK
-build_debug() {
-    print_status "Building debug version of the app..."
-    
-    # Clean and build debug APK
-    ./gradlew clean assembleDebug
-    
-    if [ $? -eq 0 ]; then
-        print_success "Debug APK built successfully!"
-        local apk_path="app/build/outputs/apk/debug/app-debug.apk"
-        if [ -f "$apk_path" ]; then
-            print_status "APK location: $apk_path"
-            return 0
-        else
-            print_error "APK file not found at expected location: $apk_path"
-            exit 1
-        fi
-    else
-        print_error "Failed to build debug APK"
-        exit 1
-    fi
+# Keep emulator running silently
+keep_running() {
+    # Wait silently for 'q' to quit
+    while true; do
+        read -n 1 -s key
+        case "$key" in
+            'q'|'Q')
+                cleanup
+                ;;
+            *)
+                # Ignore other keys silently
+                ;;
+        esac
+    done
 }
 
-# Function to install APK on device
-install_apk() {
-    print_status "Installing APK on device..."
-    
-    local apk_path="app/build/outputs/apk/debug/app-debug.apk"
-    
-    if [ ! -f "$apk_path" ]; then
-        print_error "APK file not found: $apk_path"
-        exit 1
-    fi
-    
-    # Install APK
-    adb install -r "$apk_path"
-    
-    if [ $? -eq 0 ]; then
-        print_success "APK installed successfully!"
-        print_status "App package: com.cmdruid.pubsub.debug"
-    else
-        print_error "Failed to install APK"
-        exit 1
-    fi
-}
-
-# Main script execution
+# Main
 main() {
-    echo "========================================="
-    echo "  PubSub Android Development Helper"
-    echo "========================================="
+    echo "========================================"
+    echo "   PubSub Android Development Helper"
+    echo "========================================"
     echo ""
     
-    # Check Android tools
-    check_android_tools
+    check_tools
+    info "Checking for running devices..."
     
-    # Check if AVD is running, start one if not
-    if ! check_avd_running; then
-        list_avds
-        echo ""
-        start_avd
+    if device_running; then
+        success "Device already running! (Press 'q' to quit)"
+        adb devices | grep "device$"
+    else
+        info "No devices found"
+        start_emulator
     fi
     
-    echo ""
-    
-    # Build debug APK
-    build_debug
-    
-    echo ""
-    
-    # Install APK
-    install_apk
-    
-    echo ""
-    print_success "Development setup complete!"
-    print_status "You can now test your app on the emulator."
-    print_status "To launch the app: adb shell am start -n com.cmdruid.pubsub.debug/.MainActivity"
+    keep_running
 }
 
-# Run main function
 main "$@"
