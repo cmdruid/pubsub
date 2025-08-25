@@ -57,6 +57,17 @@ check_device() {
     adb devices | grep "device$"
 }
 
+# Function to extract version from build.gradle.kts
+get_version() {
+    local version_line=$(grep 'versionName = ' app/build.gradle.kts | head -1)
+    if [ -z "$version_line" ]; then
+        print_error "Could not find versionName in app/build.gradle.kts"
+        exit 1
+    fi
+    # Extract version between quotes
+    echo "$version_line" | sed 's/.*versionName = "\([^"]*\)".*/\1/'
+}
+
 # Function to build debug APK
 build_debug() {
     print_status "Building debug version of the app..."
@@ -66,12 +77,18 @@ build_debug() {
     
     if [ $? -eq 0 ]; then
         print_success "Debug APK built successfully!"
-        local apk_path="app/build/outputs/apk/debug/app-debug.apk"
+        
+        # Get version and construct APK path with new naming scheme
+        local version=$(get_version)
+        local apk_path="app/build/outputs/apk/debug/pubsub-${version}-debug-debug.apk"
+        
         if [ -f "$apk_path" ]; then
             print_status "APK location: $apk_path"
             return 0
         else
             print_error "APK file not found at expected location: $apk_path"
+            print_status "Available APK files in debug directory:"
+            ls -la app/build/outputs/apk/debug/ || echo "Debug directory not found"
             exit 1
         fi
     else
@@ -84,10 +101,14 @@ build_debug() {
 install_apk() {
     print_status "Installing APK on device..."
     
-    local apk_path="app/build/outputs/apk/debug/app-debug.apk"
+    # Get version and construct APK path with new naming scheme
+    local version=$(get_version)
+    local apk_path="app/build/outputs/apk/debug/pubsub-${version}-debug-debug.apk"
     
     if [ ! -f "$apk_path" ]; then
         print_error "APK file not found: $apk_path"
+        print_status "Available APK files in debug directory:"
+        ls -la app/build/outputs/apk/debug/ || echo "Debug directory not found"
         exit 1
     fi
     
@@ -106,7 +127,7 @@ install_apk() {
 # Function to launch the app
 launch_app() {
     print_status "Launching the app..."
-    adb shell am start -n com.cmdruid.pubsub.debug/.MainActivity
+    adb shell am start -n com.cmdruid.pubsub.debug/com.cmdruid.pubsub.ui.MainActivity
     
     if [ $? -eq 0 ]; then
         print_success "App launched successfully!"
@@ -140,7 +161,7 @@ main() {
     
     echo ""
     print_success "Install complete!"
-    print_status "To launch the app: adb shell am start -n com.cmdruid.pubsub.debug/.MainActivity"
+    print_status "To launch the app: adb shell am start -n com.cmdruid.pubsub.debug/com.cmdruid.pubsub.ui.MainActivity"
 }
 
 # Run main function
