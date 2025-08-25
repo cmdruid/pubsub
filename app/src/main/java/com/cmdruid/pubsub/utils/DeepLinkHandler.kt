@@ -3,6 +3,7 @@ package com.cmdruid.pubsub.utils
 import android.net.Uri
 import android.util.Base64
 import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.data.KeywordFilter
 import com.cmdruid.pubsub.nostr.NostrFilter
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -130,13 +131,17 @@ object DeepLinkHandler {
                 )
             }
             
+            // Parse keywords from URI parameters
+            val keywordFilter = parseKeywords(uri)
+            
             // Create the configuration
             val configuration = Configuration(
                 name = label,
                 relayUrls = relayUrls,
                 filter = filter,
                 targetUri = targetUri,
-                isEnabled = true
+                isEnabled = true,
+                keywordFilter = keywordFilter
             )
             
             android.util.Log.d("DeepLinkHandler", "Successfully created configuration: ${configuration.name}")
@@ -151,6 +156,39 @@ object DeepLinkHandler {
                 success = false,
                 errorMessage = "Error parsing deep link: ${e.message}"
             )
+        }
+    }
+    
+    /**
+     * Parse keywords from URI parameters
+     */
+    private fun parseKeywords(uri: Uri): KeywordFilter? {
+        try {
+            // Support both individual keyword parameters and comma-separated keywords parameter
+            val individualKeywords = uri.getQueryParameters("keyword")
+                .map { it.replace("\\", "").trim() }
+                .filter { it.isNotBlank() }
+            
+            val commaSeparatedKeywords = uri.getQueryParameter("keywords")
+                ?.replace("\\", "")?.trim()
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?: emptyList()
+            
+            // Combine both approaches
+            val allKeywords = (individualKeywords + commaSeparatedKeywords).distinct()
+            
+            android.util.Log.d("DeepLinkHandler", "Parsed keywords: $allKeywords")
+            
+            return if (allKeywords.isNotEmpty()) {
+                KeywordFilter.from(allKeywords)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("DeepLinkHandler", "Error parsing keywords: ${e.message}")
+            return null
         }
     }
     
@@ -175,7 +213,9 @@ object DeepLinkHandler {
                 "&relay=wss://relay.damus.io" +
                 "&relay=wss://nos.lol" +
                 "&filter=$filterBase64" +
-                "&uri=https://myapp.com/handle-event"
+                "&uri=https://myapp.com/handle-event" +
+                "&keyword=bitcoin" +
+                "&keyword=nostr"
     }
     
     /**

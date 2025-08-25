@@ -31,6 +31,7 @@ import com.cmdruid.pubsub.nostr.NostrMessage
 import com.cmdruid.pubsub.service.SubscriptionManager
 import com.cmdruid.pubsub.ui.MainActivity
 import com.cmdruid.pubsub.utils.UriBuilder
+import com.cmdruid.pubsub.utils.KeywordMatcher
 import com.cmdruid.pubsub.service.BatteryOptimizationLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -1578,6 +1579,27 @@ class PubSubService : Service() {
         val eventSizeBytes = UriBuilder.getEventSizeBytes(event)
         val eventSizeKB = eventSizeBytes / 1024
         val isEventTooLarge = UriBuilder.isEventTooLarge(event)
+        
+        // Apply keyword filtering if configured
+        val keywordFilter = configuration.keywordFilter
+        if (keywordFilter != null && !keywordFilter.isEmpty()) {
+            if (!KeywordMatcher.shouldProcessContent(event.content)) {
+                sendDebugLog("⏭️ Event ${event.id.take(8)}... skipped: insufficient content for keyword matching")
+                return
+            }
+            
+            val matchStats = KeywordMatcher.getMatchStats(event.content, keywordFilter)
+            
+            if (!matchStats.hasMatches) {
+                sendDebugLog("🚫 Event ${event.id.take(8)}... filtered: no keyword matches (${matchStats.keywordCount} keywords, ${matchStats.processingTimeMs}ms)")
+                return
+            }
+            
+            val matchingKeywords = matchStats.matchingKeywords.joinToString(", ") { "\"$it\"" }
+            sendDebugLog("✅ Event ${event.id.take(8)}... matched keywords: $matchingKeywords (${matchStats.processingTimeMs}ms)")
+        } else {
+            sendDebugLog("📋 Event ${event.id.take(8)}... (no keyword filter)")
+        }
         
         val eventUri = UriBuilder.buildEventUri(configuration.targetUri, event)
         if (eventUri == null) {

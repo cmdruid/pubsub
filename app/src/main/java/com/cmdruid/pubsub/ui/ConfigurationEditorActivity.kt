@@ -20,7 +20,9 @@ import com.cmdruid.pubsub.nostr.NostrFilter
 import com.cmdruid.pubsub.ui.adapters.RelayUrlAdapter
 import com.cmdruid.pubsub.ui.adapters.TextEntryAdapter
 import com.cmdruid.pubsub.ui.adapters.HashtagAdapter
+import com.cmdruid.pubsub.ui.adapters.KeywordAdapter
 import com.cmdruid.pubsub.data.HashtagEntry
+import com.cmdruid.pubsub.data.KeywordFilter
 import com.cmdruid.pubsub.utils.NostrUtils
 import com.cmdruid.pubsub.utils.UriBuilder
 
@@ -44,6 +46,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
     private lateinit var pubkeyRefsAdapter: TextEntryAdapter
     private lateinit var eventRefsAdapter: TextEntryAdapter
     private lateinit var hashtagsAdapter: HashtagAdapter
+    private lateinit var keywordsAdapter: KeywordAdapter
     
     private var configurationId: String? = null
     private var isEditMode = false
@@ -60,6 +63,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         setupToolbar()
         setupRelayUrlsRecyclerView()
         setupFilterRecyclerViews()
+        setupKeywordsRecyclerView()
         setupUI()
         
         if (isEditMode) {
@@ -137,6 +141,17 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         }
     }
     
+    private fun setupKeywordsRecyclerView() {
+        keywordsAdapter = KeywordAdapter()
+        binding.keywordsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@ConfigurationEditorActivity)
+            adapter = keywordsAdapter
+        }
+        
+        // Set up visibility toggle based on content
+        updateKeywordVisibility()
+    }
+    
 
     
     private fun setupUI() {
@@ -147,6 +162,10 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             addPubkeyRefButton.setOnClickListener { pubkeyRefsAdapter.addEntry() }
             addEventRefButton.setOnClickListener { eventRefsAdapter.addEntry() }
             addHashtagButton.setOnClickListener { hashtagsAdapter.addEntry() }
+            addKeywordButton.setOnClickListener { 
+                keywordsAdapter.addKeyword()
+                updateKeywordVisibility()
+            }
             
             saveButton.setOnClickListener {
                 saveConfiguration()
@@ -180,6 +199,10 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         pubkeyRefsAdapter.setEntries(filter.pubkeyRefs ?: emptyList())
         eventRefsAdapter.setEntries(filter.eventRefs ?: emptyList())
         hashtagsAdapter.setEntries(filter.hashtagEntries ?: emptyList())
+        
+        // Load keyword filter
+        keywordsAdapter.setKeywords(configuration.keywordFilter?.keywords ?: emptyList())
+        updateKeywordVisibility()
         
         // No simple fields to load (limit field removed)
     }
@@ -218,6 +241,9 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             return
         }
         
+        // Build keyword filter
+        val keywordFilter = buildKeywordFilter()
+        
         // Create or update configuration
         val configuration = if (isEditMode) {
             // For edit mode, use the existing configurationId
@@ -226,7 +252,8 @@ class ConfigurationEditorActivity : AppCompatActivity() {
                 name = name,
                 relayUrls = relayUrls,
                 filter = filter,
-                targetUri = targetUri
+                targetUri = targetUri,
+                keywordFilter = keywordFilter
             )
         } else {
             // For new configurations, generate a new ID
@@ -234,7 +261,8 @@ class ConfigurationEditorActivity : AppCompatActivity() {
                 name = name,
                 relayUrls = relayUrls,
                 filter = filter,
-                targetUri = targetUri
+                targetUri = targetUri,
+                keywordFilter = keywordFilter
             )
         }
         
@@ -301,6 +329,27 @@ class ConfigurationEditorActivity : AppCompatActivity() {
                 true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+    
+    private fun buildKeywordFilter(): KeywordFilter? {
+        val keywords = keywordsAdapter.getKeywords()
+        return if (keywords.isNotEmpty()) {
+            KeywordFilter.from(keywords)
+        } else {
+            null
+        }
+    }
+    
+    private fun updateKeywordVisibility() {
+        binding.apply {
+            if (keywordsAdapter.itemCount == 0) {
+                keywordsRecyclerView.visibility = View.GONE
+                noKeywordsText.visibility = View.VISIBLE
+            } else {
+                keywordsRecyclerView.visibility = View.VISIBLE
+                noKeywordsText.visibility = View.GONE
+            }
         }
     }
 }

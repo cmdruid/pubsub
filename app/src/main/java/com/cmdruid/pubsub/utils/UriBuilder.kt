@@ -2,7 +2,10 @@ package com.cmdruid.pubsub.utils
 
 import android.net.Uri
 import android.util.Base64
+import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.data.KeywordFilter
 import com.cmdruid.pubsub.nostr.NostrEvent
+import com.cmdruid.pubsub.nostr.NostrFilter
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import java.nio.charset.StandardCharsets
@@ -135,6 +138,84 @@ object UriBuilder {
         return try {
             val note = extractNoteFromUri(uri) ?: return null
             NostrUtils.noteToHex(note)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    /**
+     * Build a pubsub://register deep link from a Configuration
+     */
+    fun buildRegisterDeepLink(configuration: Configuration): String? {
+        return try {
+            val filterJson = gson.toJson(configuration.filter)
+            val filterBase64 = Base64.encodeToString(
+                filterJson.toByteArray(StandardCharsets.UTF_8),
+                Base64.URL_SAFE or Base64.NO_WRAP
+            )
+            
+            val uriBuilder = Uri.Builder()
+                .scheme("pubsub")
+                .authority("register")
+                .appendQueryParameter("label", configuration.name)
+                .appendQueryParameter("uri", configuration.targetUri)
+                .appendQueryParameter("filter", filterBase64)
+            
+            // Add relay URLs
+            configuration.relayUrls.forEach { relayUrl ->
+                uriBuilder.appendQueryParameter("relay", relayUrl)
+            }
+            
+            // Add keywords if present
+            configuration.keywordFilter?.let { keywordFilter ->
+                if (!keywordFilter.isEmpty()) {
+                    keywordFilter.keywords.forEach { keyword ->
+                        uriBuilder.appendQueryParameter("keyword", keyword)
+                    }
+                }
+            }
+            
+            uriBuilder.build().toString()
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    /**
+     * Build a pubsub://register deep link with custom parameters
+     */
+    fun buildRegisterDeepLink(
+        label: String,
+        relayUrls: List<String>,
+        filter: NostrFilter,
+        targetUri: String,
+        keywords: List<String> = emptyList()
+    ): String? {
+        return try {
+            val filterJson = gson.toJson(filter)
+            val filterBase64 = Base64.encodeToString(
+                filterJson.toByteArray(StandardCharsets.UTF_8),
+                Base64.URL_SAFE or Base64.NO_WRAP
+            )
+            
+            val uriBuilder = Uri.Builder()
+                .scheme("pubsub")
+                .authority("register")
+                .appendQueryParameter("label", label)
+                .appendQueryParameter("uri", targetUri)
+                .appendQueryParameter("filter", filterBase64)
+            
+            // Add relay URLs
+            relayUrls.forEach { relayUrl ->
+                uriBuilder.appendQueryParameter("relay", relayUrl)
+            }
+            
+            // Add keywords
+            keywords.forEach { keyword ->
+                uriBuilder.appendQueryParameter("keyword", keyword)
+            }
+            
+            uriBuilder.build().toString()
         } catch (e: Exception) {
             null
         }

@@ -21,7 +21,8 @@ data class Configuration(
     val filter: NostrFilter,
     val targetUri: String,
     val isDirectMode: Boolean = false,
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    val keywordFilter: KeywordFilter? = null
 ) {
     /**
      * Check if this configuration is valid and ready to use
@@ -40,7 +41,10 @@ data class Configuration(
     fun getSummary(): String {
         val relayCount = relayUrls.size
         val filterSummary = filter.getSummary()
-        return "$name • $relayCount relay${if (relayCount != 1) "s" else ""} • $filterSummary"
+        val keywordSummary = keywordFilter?.let { 
+            if (!it.isEmpty()) " • ${it.getSummary()}" else ""
+        } ?: ""
+        return "$name • $relayCount relay${if (relayCount != 1) "s" else ""} • $filterSummary$keywordSummary"
     }
     
 
