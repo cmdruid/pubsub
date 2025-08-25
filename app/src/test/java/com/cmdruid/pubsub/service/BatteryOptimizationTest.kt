@@ -446,6 +446,8 @@ class BatteryOptimizationTest {
             PubSubService.AppState.FOREGROUND -> 30L
             PubSubService.AppState.BACKGROUND -> 120L
             PubSubService.AppState.DOZE -> 300L
+            PubSubService.AppState.RARE -> 600L
+            PubSubService.AppState.RESTRICTED -> 1200L
         }
     }
     
@@ -454,6 +456,8 @@ class BatteryOptimizationTest {
             "FOREGROUND" -> PubSubService.AppState.FOREGROUND
             "BACKGROUND" -> PubSubService.AppState.BACKGROUND
             "DOZE" -> PubSubService.AppState.DOZE
+            "RARE" -> PubSubService.AppState.RARE
+            "RESTRICTED" -> PubSubService.AppState.RESTRICTED
             else -> null
         }
     }
@@ -570,6 +574,8 @@ class BatteryOptimizationTest {
             PubSubService.AppState.FOREGROUND -> 10
             PubSubService.AppState.BACKGROUND -> 7
             PubSubService.AppState.DOZE -> 3
+            PubSubService.AppState.RARE -> 2
+            PubSubService.AppState.RESTRICTED -> 1
         }
     }
     
@@ -603,6 +609,8 @@ class BatteryOptimizationTest {
             PubSubService.AppState.FOREGROUND -> 0.05 // 5% additional savings
             PubSubService.AppState.BACKGROUND -> 0.20 // 20% additional savings
             PubSubService.AppState.DOZE -> 0.25 // 25% additional savings
+            PubSubService.AppState.RARE -> 0.30 // 30% additional savings
+            PubSubService.AppState.RESTRICTED -> 0.35 // 35% additional savings
         }
         
         return phase1Usage * (1.0 - phase2Reduction)

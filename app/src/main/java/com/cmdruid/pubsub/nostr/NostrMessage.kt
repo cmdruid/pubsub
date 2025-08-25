@@ -1,6 +1,7 @@
 package com.cmdruid.pubsub.nostr
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
@@ -9,7 +10,9 @@ import com.google.gson.JsonParser
  * Utility class for handling Nostr WebSocket messages
  */
 object NostrMessage {
-    private val gson = Gson()
+    private val gson = GsonBuilder()
+        .registerTypeAdapter(NostrFilter::class.java, NostrFilterSerializer())
+        .create()
     
     /**
      * Message types as defined in NIP-01

@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Base64
 import com.cmdruid.pubsub.nostr.NostrEvent
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import java.nio.charset.StandardCharsets
 
 /**
@@ -11,7 +12,9 @@ import java.nio.charset.StandardCharsets
  */
 object UriBuilder {
     
-    private val gson = Gson()
+    private val gson = GsonBuilder()
+        .registerTypeAdapter(com.cmdruid.pubsub.nostr.NostrFilter::class.java, com.cmdruid.pubsub.nostr.NostrFilterSerializer())
+        .create()
     
     /**
      * Build a URI with note identifier and optional event data

@@ -384,7 +384,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Events with these hashtags (without # prefix)"
+                        android:text="Events with these hashtag filters (single letter tags a-z, A-Z with values). You can add multiple entries with the same tag."
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />

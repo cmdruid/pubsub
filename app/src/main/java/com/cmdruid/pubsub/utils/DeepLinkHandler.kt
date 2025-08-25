@@ -5,6 +5,7 @@ import android.util.Base64
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.nostr.NostrFilter
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import java.nio.charset.StandardCharsets
 
 /**
@@ -14,7 +15,9 @@ import java.nio.charset.StandardCharsets
  */
 object DeepLinkHandler {
     
-    private val gson = Gson()
+    private val gson = GsonBuilder()
+        .registerTypeAdapter(NostrFilter::class.java, com.cmdruid.pubsub.nostr.NostrFilterSerializer())
+        .create()
     
     data class DeepLinkResult(
         val success: Boolean,

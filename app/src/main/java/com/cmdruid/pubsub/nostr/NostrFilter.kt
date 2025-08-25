@@ -1,6 +1,7 @@
 package com.cmdruid.pubsub.nostr
 
 import com.google.gson.annotations.SerializedName
+import com.cmdruid.pubsub.data.HashtagEntry
 
 /**
  * Represents a Nostr filter as defined in NIP-01
@@ -22,8 +23,10 @@ data class NostrFilter(
     @SerializedName("#p")
     val pubkeyRefs: List<String>? = null,
     
-    @SerializedName("#t")
-    val hashtags: List<String>? = null,
+    // Dynamic hashtag filters using single-letter tags (a-z, A-Z)
+    // This will be serialized as "#a", "#b", "#t", etc. based on the HashtagEntry list
+    @SerializedName("hashtag_entries")
+    val hashtagEntries: List<HashtagEntry>? = null,
     
     @SerializedName("#d")
     val dTags: List<String>? = null,
@@ -62,7 +65,7 @@ data class NostrFilter(
                kinds.isNullOrEmpty() &&
                eventRefs.isNullOrEmpty() &&
                pubkeyRefs.isNullOrEmpty() &&
-               hashtags.isNullOrEmpty() &&
+               hashtagEntries.isNullOrEmpty() &&
                dTags.isNullOrEmpty() &&
                rTags.isNullOrEmpty() &&
                aTags.isNullOrEmpty() &&
@@ -93,8 +96,9 @@ data class NostrFilter(
             parts.add("${it.size} event ref${if (it.size != 1) "s" else ""}")
         }
         
-        hashtags?.takeIf { it.isNotEmpty() }?.let { 
-            parts.add("hashtags: ${it.joinToString(",")}")
+        hashtagEntries?.takeIf { it.isNotEmpty() }?.let { entries ->
+            val tagSummary = entries.map { "${it.tag}:${it.value}" }.joinToString(",")
+            parts.add("hashtags: $tagSummary")
         }
         
         search?.takeIf { it.isNotBlank() }?.let {
@@ -139,7 +143,7 @@ data class NostrFilter(
         kinds?.let { complexity += it.size }
         eventRefs?.let { complexity += it.size }
         pubkeyRefs?.let { complexity += it.size }
-        hashtags?.let { complexity += it.size }
+        hashtagEntries?.let { complexity += it.size }
         dTags?.let { complexity += it.size }
         
         return complexity
@@ -218,7 +222,7 @@ class FilterBuilder {
     private var kinds: MutableList<Int>? = null
     private var eventRefs: MutableList<String>? = null
     private var pubkeyRefs: MutableList<String>? = null
-    private var hashtags: MutableList<String>? = null
+    private var hashtagEntries: MutableList<HashtagEntry>? = null
     private var dTags: MutableList<String>? = null
     private var since: Long? = null
     private var until: Long? = null
@@ -250,9 +254,14 @@ class FilterBuilder {
         pubkeyRefs!!.addAll(pubkeys)
     }
     
-    fun hashtags(vararg tags: String) = apply {
-        if (hashtags == null) hashtags = mutableListOf()
-        hashtags!!.addAll(tags)
+    fun hashtagEntries(vararg entries: HashtagEntry) = apply {
+        if (hashtagEntries == null) hashtagEntries = mutableListOf()
+        hashtagEntries!!.addAll(entries)
+    }
+    
+    fun hashtag(tag: String, value: String) = apply {
+        if (hashtagEntries == null) hashtagEntries = mutableListOf()
+        hashtagEntries!!.add(HashtagEntry(tag, value))
     }
     
     fun since(timestamp: Long) = apply { this.since = timestamp }
@@ -271,7 +280,7 @@ class FilterBuilder {
             kinds = kinds?.toList(),
             eventRefs = eventRefs?.toList(),
             pubkeyRefs = pubkeyRefs?.toList(),
-            hashtags = hashtags?.toList(),
+            hashtagEntries = hashtagEntries?.toList(),
             dTags = dTags?.toList(),
             since = since,
             until = until,

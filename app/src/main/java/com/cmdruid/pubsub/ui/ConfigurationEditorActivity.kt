@@ -19,6 +19,8 @@ import com.cmdruid.pubsub.databinding.ActivityConfigurationEditorBinding
 import com.cmdruid.pubsub.nostr.NostrFilter
 import com.cmdruid.pubsub.ui.adapters.RelayUrlAdapter
 import com.cmdruid.pubsub.ui.adapters.TextEntryAdapter
+import com.cmdruid.pubsub.ui.adapters.HashtagAdapter
+import com.cmdruid.pubsub.data.HashtagEntry
 import com.cmdruid.pubsub.utils.NostrUtils
 import com.cmdruid.pubsub.utils.UriBuilder
 
@@ -41,7 +43,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
     private lateinit var kindsAdapter: TextEntryAdapter
     private lateinit var pubkeyRefsAdapter: TextEntryAdapter
     private lateinit var eventRefsAdapter: TextEntryAdapter
-    private lateinit var hashtagsAdapter: TextEntryAdapter
+    private lateinit var hashtagsAdapter: HashtagAdapter
     
     private var configurationId: String? = null
     private var isEditMode = false
@@ -127,11 +129,8 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             adapter = eventRefsAdapter
         }
         
-        // Hashtags adapter with hashtag validation
-        hashtagsAdapter = TextEntryAdapter(
-            hint = "Hashtag (without #)",
-            validator = TextEntryAdapter.createHashtagValidator()
-        )
+        // Hashtags adapter - simplified flat list approach
+        hashtagsAdapter = HashtagAdapter()
         binding.hashtagsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@ConfigurationEditorActivity)
             adapter = hashtagsAdapter
@@ -180,7 +179,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         kindsAdapter.setEntries(filter.kinds?.map { it.toString() } ?: emptyList())
         pubkeyRefsAdapter.setEntries(filter.pubkeyRefs ?: emptyList())
         eventRefsAdapter.setEntries(filter.eventRefs ?: emptyList())
-        hashtagsAdapter.setEntries(filter.hashtags ?: emptyList())
+        hashtagsAdapter.setEntries(filter.hashtagEntries ?: emptyList())
         
         // No simple fields to load (limit field removed)
     }
@@ -280,14 +279,14 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         val kinds = kindsAdapter.getEntries().mapNotNull { it.toIntOrNull() }.takeIf { it.isNotEmpty() }
         val pubkeyRefs = pubkeyRefsAdapter.getEntries().takeIf { it.isNotEmpty() }
         val eventRefs = eventRefsAdapter.getEntries().takeIf { it.isNotEmpty() }
-        val hashtags = hashtagsAdapter.getEntries().takeIf { it.isNotEmpty() }
+        val hashtagEntries = hashtagsAdapter.getEntries().takeIf { it.isNotEmpty() }
         
         return NostrFilter(
             authors = authors,
             kinds = kinds,
             pubkeyRefs = pubkeyRefs,
             eventRefs = eventRefs,
-            hashtags = hashtags,
+            hashtagEntries = hashtagEntries,
             search = null, // Removed text search
             since = null, // Will be auto-updated by service
             until = null, // Removed time range
