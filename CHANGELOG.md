@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.2]
+
+- Battery optimizations across the board.
+
 ## [0.9.1]
 
 - Refactored nostr utility methods.
