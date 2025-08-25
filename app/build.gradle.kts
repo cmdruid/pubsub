@@ -109,6 +109,18 @@ android {
             enableSplit = false
         }
     }
+    
+    // Configure custom APK/AAB names with version
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val buildType = variant.buildType.name
+            val versionName = variant.versionName
+            // Use the versionName as-is since it already includes the suffix for debug builds
+            output.outputFileName = "pubsub-${versionName}-${buildType}.apk"
+        }
+    }
 }
 
 dependencies {
