@@ -33,12 +33,21 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val ACTION_DEBUG_LOG = "com.cmdruid.pubsub.DEBUG_LOG"
         const val EXTRA_LOG_MESSAGE = "log_message"
+        
+        // Battery optimization: App state broadcasts
+        const val ACTION_APP_STATE_CHANGE = "com.cmdruid.pubsub.APP_STATE_CHANGE"
+        const val EXTRA_APP_STATE = "app_state"
+        const val EXTRA_STATE_DURATION = "state_duration"
     }
     
     private lateinit var binding: ActivityMainBinding
     private lateinit var configurationManager: ConfigurationManager
     private lateinit var configurationAdapter: ConfigurationAdapter
     private lateinit var debugLogAdapter: DebugLogAdapter
+    
+    // Battery optimization: Lifecycle state tracking
+    private var appResumedTime: Long = 0
+    private var appPausedTime: Long = 0
     
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -301,12 +310,38 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         
+        // Battery optimization: Track app resume time and send state change
+        val currentTime = System.currentTimeMillis()
+        val backgroundDuration = if (appPausedTime > 0) currentTime - appPausedTime else 0L
+        appResumedTime = currentTime
+        
+        // Log app state transition
+        configurationManager.addDebugLog("🔋 App resumed (background for ${backgroundDuration}ms)")
+        
+        // Notify service about app state change
+        sendAppStateChangeToService("FOREGROUND", backgroundDuration)
+        
         // Check for stale service state and fix it
         checkAndFixServiceState()
         
         updateServiceStatus()
         refreshConfigurations()
         refreshDebugLogs()
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        
+        // Battery optimization: Track app pause time and send state change
+        val currentTime = System.currentTimeMillis()
+        val foregroundDuration = if (appResumedTime > 0) currentTime - appResumedTime else 0L
+        appPausedTime = currentTime
+        
+        // Log app state transition
+        configurationManager.addDebugLog("🔋 App paused (foreground for ${foregroundDuration}ms)")
+        
+        // Notify service about app state change
+        sendAppStateChangeToService("BACKGROUND", foregroundDuration)
     }
     
     /**
@@ -375,6 +410,23 @@ class MainActivity : AppCompatActivity() {
             configurationManager.addDebugLog("🔄 Requested configuration sync")
         } catch (e: Exception) {
             configurationManager.addDebugLog("❌ Failed to sync configurations: ${e.message}")
+        }
+    }
+    
+    /**
+     * Send app state change broadcast to service for battery optimization
+     */
+    private fun sendAppStateChangeToService(appState: String, duration: Long) {
+        try {
+            val intent = Intent(ACTION_APP_STATE_CHANGE).apply {
+                putExtra(EXTRA_APP_STATE, appState)
+                putExtra(EXTRA_STATE_DURATION, duration)
+            }
+            sendBroadcast(intent)
+            
+            configurationManager.addDebugLog("📤 Sent app state change: $appState (duration: ${duration}ms)")
+        } catch (e: Exception) {
+            configurationManager.addDebugLog("❌ Failed to send app state change: ${e.message}")
         }
     }
 
