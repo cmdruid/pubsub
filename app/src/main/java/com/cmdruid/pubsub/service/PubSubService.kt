@@ -1458,12 +1458,29 @@ class PubSubService : Service() {
         // Use the configuration's permanent subscription ID
         val subscriptionId = configuration.subscriptionId
         
-        // Always update the "since" timestamp to get only new events
+        // Update the "since" timestamp - use stored timestamp if recent, otherwise use safety buffer to prevent gaps
         val filterToUse = if (connection.subscriptionId != null && connection.subscriptionId == subscriptionId) {
-            // This is a resubscription with the same ID - use updated filter with latest timestamp
-            subscriptionManager.createResubscriptionFilter(subscriptionId) ?: createInitialFilter(configuration.filter)
+            // This is a resubscription with the same ID - check if stored timestamp is recent enough
+            val resubFilter = subscriptionManager.createResubscriptionFilter(subscriptionId)
+            if (resubFilter != null && resubFilter.since != null) {
+                val currentTimestamp = System.currentTimeMillis() / 1000
+                val lastEventAge = currentTimestamp - resubFilter.since!!
+                
+                // If last event was more than 2x the current ping interval ago, use safety buffer instead
+                // This handles cases where connection was down longer than expected
+                if (lastEventAge < currentPingInterval * 2) {
+                    sendDebugLog("📋 Using stored timestamp (${lastEventAge}s ago)")
+                    resubFilter
+                } else {
+                    sendDebugLog("📋 Stored timestamp too old (${lastEventAge}s), using safety buffer")
+                    createInitialFilter(configuration.filter)
+                }
+            } else {
+                // No stored timestamp available, use safety buffer
+                createInitialFilter(configuration.filter)
+            }
         } else {
-            // New subscription or subscription ID changed - set "since" to current time to get only new events
+            // New subscription or subscription ID changed - use safety buffer to prevent gaps
             createInitialFilter(configuration.filter)
         }
         
@@ -1487,11 +1504,22 @@ class PubSubService : Service() {
     }
     
     /**
-     * Create initial filter with "since" set to current time for new subscriptions
+     * Create initial filter with "since" set to a safe timestamp to prevent gaps
+     * Uses current time minus a safety buffer to catch events that might have been missed
+     * during connection downtime or between keepalive intervals
      */
     private fun createInitialFilter(baseFilter: NostrFilter): NostrFilter {
+        // Use a safety buffer to catch events that might have been missed
+        // during connection downtime. Use the longest possible ping interval
+        // plus extra buffer to ensure we don't miss notifications if the
+        // websocket was killed before keepalive detection occurred.
+        val safetyBufferSeconds = PING_INTERVAL_RESTRICTED_SECONDS + 300L // 35 minutes total (30 + 5 extra)
         val currentTimestamp = System.currentTimeMillis() / 1000 // Convert to Unix timestamp
-        return baseFilter.copy(since = currentTimestamp)
+        val safeTimestamp = currentTimestamp - safetyBufferSeconds
+        
+        sendDebugLog("📋 Using safety buffer: ${safetyBufferSeconds / 60}min lookback to prevent gaps")
+        
+        return baseFilter.copy(since = safeTimestamp)
     }
     
     private fun handleWebSocketMessage(messageText: String, originalConfiguration: Configuration) {
