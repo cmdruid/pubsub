@@ -77,14 +77,16 @@ class KeywordFilterTest {
     @Test
     fun testKeywordSanitization() {
         val dirtyKeywords = listOf("  bitcoin  ", "", "   ", "a", "nostr", "x".repeat(150))
-        val filter = KeywordFilter.from(dirtyKeywords).sanitizeKeywords()
+        val filter = KeywordFilter.from(dirtyKeywords)
         
-        // Should only have valid keywords
-        assertEquals(2, filter.keywords.size)
+        // Should only have valid keywords (long keyword gets truncated to 100 chars)
+        assertEquals(3, filter.keywords.size)
         assertTrue(filter.keywords.contains("bitcoin"))
         assertTrue(filter.keywords.contains("nostr"))
         assertFalse(filter.keywords.contains("a"))  // Too short
         assertFalse(filter.keywords.contains(""))   // Empty
+        // Long keyword should be truncated to 100 characters
+        assertTrue(filter.keywords.any { it.length == 100 && it.all { c -> c == 'x' } })
     }
 
     @Test

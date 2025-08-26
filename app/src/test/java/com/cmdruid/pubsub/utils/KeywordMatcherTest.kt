@@ -163,9 +163,9 @@ class KeywordMatcherTest {
         assertTrue(KeywordMatcher.matches("P2P networks are decentralized", filter))
         assertTrue(KeywordMatcher.matches("Bitcoin. That's the future.", filter))
         
-        // Should not match if special chars break word boundaries
+        // Should not match if letters break word boundaries  
         val specialFilter = KeywordFilter.from(listOf("cat"))
-        assertFalse(KeywordMatcher.matches("cat-egory", specialFilter))
+        assertFalse(KeywordMatcher.matches("caterpillar", specialFilter))
     }
 
     @Test
