@@ -5,6 +5,7 @@
 - Battery optimizations across the board.
 - Fixed issue with hashtags not having a value field.
 - Added keyword filtering.
+- Fixed issue with notification gap between a dead socket and reconnection.
 
 ## [0.9.1]
 
