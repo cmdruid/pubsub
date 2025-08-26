@@ -129,13 +129,34 @@ jobs:
       # Create GitHub release with APK
       - name: Create Release
         run: |
-          # Use signed APK if secrets are available, otherwise unsigned
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            APK_PATH="app/build/outputs/apk/release/app-release.apk"
-            echo "Using signed APK: $APK_PATH"
+          # Find the actual APK file with our custom naming scheme
+          echo "🔍 Looking for APK files in release directory..."
+          ls -la app/build/outputs/apk/release/ || echo "Release directory not found yet"
+          
+          # Look for any APK with pubsub naming (signed or unsigned)
+          APK_PATH=$(find app/build/outputs/apk/release -name "pubsub-v*-release*.apk" | head -1)
+          
+          if [ -n "$APK_PATH" ]; then
+            echo "✅ Found custom-named APK: $APK_PATH"
           else
-            APK_PATH="app/build/outputs/apk/release/app-release-unsigned.apk"
-            echo "Using unsigned APK: $APK_PATH (signing secrets not available)"
+            echo "⚠️  Custom-named APK not found, trying fallback naming..."
+            # Try signed first, then unsigned
+            if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+              APK_PATH="app/build/outputs/apk/release/app-release.apk"
+              echo "📦 Using fallback signed APK: $APK_PATH"
+            elif [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+              APK_PATH="app/build/outputs/apk/release/app-release-unsigned.apk"
+              echo "📦 Using fallback unsigned APK: $APK_PATH"
+            else
+              echo "❌ No APK found with any naming scheme"
+            fi
+          fi
+          
+          # Determine if APK is signed based on filename
+          if [[ "$APK_PATH" == *"unsigned"* ]]; then
+            echo "ℹ️  Note: Using unsigned APK (signing secrets not available or signing failed)"
+          else
+            echo "✅ Using signed APK"
           fi
           
           # Verify APK exists and show info

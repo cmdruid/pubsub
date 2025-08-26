@@ -117,8 +117,16 @@ android {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
             val buildType = variant.buildType.name
             val versionName = variant.versionName
-            // Use the versionName as-is since it already includes the suffix for debug builds
-            output.outputFileName = "pubsub-${versionName}-${buildType}.apk"
+            
+            // For debug builds, versionName already includes "-debug" suffix
+            // For release builds, we want to add the buildType
+            val fileName = if (buildType == "debug" && versionName?.endsWith("-debug") == true) {
+                "pubsub-${versionName}.apk"
+            } else {
+                "pubsub-${versionName}-${buildType}.apk"
+            }
+            
+            output.outputFileName = fileName
         }
     }
 }
