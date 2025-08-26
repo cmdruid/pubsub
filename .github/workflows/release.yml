@@ -134,7 +134,7 @@ jobs:
           ls -la app/build/outputs/apk/release/ || echo "Release directory not found yet"
           
           # Look for any APK with pubsub naming (signed or unsigned)
-          APK_PATH=$(find app/build/outputs/apk/release -name "pubsub-v*-release*.apk" | head -1)
+          APK_PATH=$(find app/build/outputs/apk/release -name "pubsub-*-release*.apk" | head -1)
           
           if [ -n "$APK_PATH" ]; then
             echo "✅ Found custom-named APK: $APK_PATH"

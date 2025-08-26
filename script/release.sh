@@ -154,8 +154,8 @@ build_release() {
     echo "✅ Release build completed!"
     
     # Find the actual APK/AAB files with our custom naming
-    AAB_FILE=$(find app/build/outputs/bundle/release -name "pubsub-v*-release.aab" | head -1)
-    APK_FILE=$(find app/build/outputs/apk/release -name "pubsub-v*-release.apk" | head -1)
+    AAB_FILE=$(find app/build/outputs/bundle/release -name "pubsub-*-release.aab" | head -1)
+    APK_FILE=$(find app/build/outputs/apk/release -name "pubsub-*-release.apk" | head -1)
     
     if [ -n "$AAB_FILE" ]; then
         echo "📍 AAB: $AAB_FILE"
@@ -194,7 +194,7 @@ elif [ "$GITHUB_ONLY" = true ]; then
     
     echo ""
     echo "📋 Next steps:"
-    echo "   1. Test APK: adb install app/build/outputs/apk/release/pubsub-v$VERSION-release.apk"
+    echo "   1. Test APK: adb install app/build/outputs/apk/release/pubsub-$VERSION-release.apk"
     echo "   2. Upload AAB to Google Play Console for distribution:"
     echo "      • Internal testing for quick validation"
     echo "      • Closed testing for beta users" 
