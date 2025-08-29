@@ -78,9 +78,9 @@ build_debug() {
     if [ $? -eq 0 ]; then
         print_success "Debug APK built successfully!"
         
-        # Get version and construct APK path with new naming scheme
+        # Get version and construct APK path with current naming scheme
         local version=$(get_version)
-        local apk_path="app/build/outputs/apk/debug/pubsub-${version}-debug-debug.apk"
+        local apk_path="app/build/outputs/apk/debug/pubsub-${version}-debug.apk"
         
         if [ -f "$apk_path" ]; then
             print_status "APK location: $apk_path"
@@ -101,9 +101,9 @@ build_debug() {
 install_apk() {
     print_status "Installing APK on device..."
     
-    # Get version and construct APK path with new naming scheme
+    # Get version and construct APK path with current naming scheme
     local version=$(get_version)
-    local apk_path="app/build/outputs/apk/debug/pubsub-${version}-debug-debug.apk"
+    local apk_path="app/build/outputs/apk/debug/pubsub-${version}-debug.apk"
     
     if [ ! -f "$apk_path" ]; then
         print_error "APK file not found: $apk_path"

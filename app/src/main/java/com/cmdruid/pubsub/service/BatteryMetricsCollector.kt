@@ -11,7 +11,7 @@ import kotlin.math.abs
 
 /**
  * Collects and tracks battery optimization effectiveness metrics
- * Monitors Phase 1 implementation impact on network activity and battery usage
+ * Monitors implementation impact on network activity and battery usage
  */
 class BatteryMetricsCollector(private val context: Context) {
     
@@ -61,7 +61,7 @@ class BatteryMetricsCollector(private val context: Context) {
         val appStateTransitions: Int,
         val batteryDrainImprovement: Double, // Percentage improvement
         val networkActivityReduction: Double, // Estimated reduction
-        val phase1Effectiveness: String // Overall assessment
+        val optimizationEffectiveness: String // Overall assessment
     )
     
     // Metrics storage
@@ -207,9 +207,9 @@ class BatteryMetricsCollector(private val context: Context) {
     }
     
     /**
-     * Generate Phase 1 effectiveness report
+     * Generate optimization effectiveness report
      */
-    fun generatePhase1Report(): OptimizationReport {
+    fun generateOptimizationReport(): OptimizationReport {
         val currentTime = System.currentTimeMillis()
         val collectionDuration = currentTime - pingMetrics.startTime
         
@@ -237,7 +237,7 @@ class BatteryMetricsCollector(private val context: Context) {
         val networkActivityReduction = estimateNetworkReduction()
         
         // Overall effectiveness assessment
-        val effectiveness = assessPhase1Effectiveness(
+        val effectiveness = assessOptimizationEffectiveness(
             pingFrequencyReduction,
             connectionStability,
             batteryDrainImprovement,
@@ -252,13 +252,13 @@ class BatteryMetricsCollector(private val context: Context) {
             appStateTransitions = appStateMetrics.stateTransitions,
             batteryDrainImprovement = batteryDrainImprovement,
             networkActivityReduction = networkActivityReduction,
-            phase1Effectiveness = effectiveness
+            optimizationEffectiveness = effectiveness
         )
         
         // Store in history
         metricsHistory.add(report)
         
-        Log.i(TAG, "Generated Phase 1 report: $effectiveness")
+        Log.i(TAG, "Generated optimization report: $effectiveness")
         return report
     }
     
@@ -322,9 +322,9 @@ class BatteryMetricsCollector(private val context: Context) {
     }
     
     /**
-     * Assess overall Phase 1 effectiveness
+     * Assess overall optimization effectiveness
      */
-    private fun assessPhase1Effectiveness(
+    private fun assessOptimizationEffectiveness(
         pingReduction: Double,
         connectionStability: Double,
         batteryImprovement: Double,
@@ -399,16 +399,16 @@ class BatteryMetricsCollector(private val context: Context) {
      * Export metrics as formatted report
      */
     fun exportMetricsReport(): String {
-        val report = generatePhase1Report()
+        val report = generateOptimizationReport()
         val summary = getMetricsSummary()
         
         return buildString {
-            appendLine("=== Battery Optimization Phase 1 Metrics Report ===")
+            appendLine("=== Battery Optimization Metrics Report ===")
             appendLine("Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(report.reportTime))}")
             appendLine("Collection Duration: ${report.collectionDuration / 1000}s")
             appendLine()
             
-            appendLine("OPTIMIZATION EFFECTIVENESS: ${report.phase1Effectiveness}")
+            appendLine("OPTIMIZATION EFFECTIVENESS: ${report.optimizationEffectiveness}")
             appendLine("- Ping Frequency Reduction: ${String.format("%.1f", report.pingFrequencyReduction)}%")
             appendLine("- Connection Stability: ${String.format("%.1f", report.connectionStability)}%")
             appendLine("- Battery Drain Improvement: ${String.format("%.1f", report.batteryDrainImprovement)}%")

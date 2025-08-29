@@ -146,8 +146,8 @@ class ConfigurationManager(context: Context) {
         val logs = debugLogs.toMutableList()
         logs.add(0, "${System.currentTimeMillis()}: $truncatedMessage") // Add to beginning
         
-        // Keep only last 50 logs (reduced from 100 for better performance)
-        while (logs.size > 50) {
+        // Keep only last 100 logs for comprehensive debugging
+        while (logs.size > 100) {
             logs.removeAt(logs.size - 1)
         }
         
@@ -167,7 +167,7 @@ class ConfigurationManager(context: Context) {
     fun getDebugLogStats(): String {
         val logs = debugLogs
         val totalSize = logs.sumOf { it.length }
-        return "${logs.size}/50 logs, ${totalSize} chars"
+        return "${logs.size}/100 logs, ${totalSize} chars"
     }
     
     /**

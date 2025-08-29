@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.3]
+
+- Fixed issues with relay subscriptions going stale. The app should now detect if the subscription is stale, and resubscribe.
+- Added better logging to the debug console.
+- Refactored the main service file and split into multiple files.
+
 ## [0.9.2]
 
 - Battery optimizations across the board.
