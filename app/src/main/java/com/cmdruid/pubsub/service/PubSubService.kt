@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ class PubSubService : Service() {
     )
     
     private lateinit var configurationManager: ConfigurationManager
+    private lateinit var settingsManager: SettingsManager
     private lateinit var batteryOptimizationLogger: BatteryOptimizationLogger
     private lateinit var batteryMetricsCollector: BatteryMetricsCollector
     private lateinit var networkOptimizationLogger: NetworkOptimizationLogger
@@ -96,6 +98,7 @@ class PubSubService : Service() {
     override fun onCreate() {
         super.onCreate()
         configurationManager = ConfigurationManager(this)
+        settingsManager = SettingsManager(this)
         batteryOptimizationLogger = BatteryOptimizationLogger(this)
         batteryMetricsCollector = BatteryMetricsCollector(this)
         networkOptimizationLogger = NetworkOptimizationLogger(this)
@@ -218,6 +221,7 @@ class PubSubService : Service() {
             context = this,
             batteryOptimizationLogger = batteryOptimizationLogger,
             batteryMetricsCollector = batteryMetricsCollector,
+            settingsManager = settingsManager,
             onAppStateChange = { newState, duration -> 
                 // Handle app state changes that affect other components
                 webSocketConnectionManager.updateOkHttpClient()
@@ -250,6 +254,7 @@ class PubSubService : Service() {
         // Initialize event notification management
         eventNotificationManager = EventNotificationManager(
             context = this,
+            settingsManager = settingsManager,
             sendDebugLog = { message -> sendDebugLog(message) }
         )
         

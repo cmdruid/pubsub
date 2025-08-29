@@ -51,6 +51,13 @@
             android:parentActivityName=".ui.MainActivity"
             android:theme="@style/Theme.PubSub" />
 
+        <!-- Settings Activity -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity"
+            android:theme="@style/Theme.PubSub" />
+
         <!-- Background Service -->
         <service
             android:name=".service.PubSubService"

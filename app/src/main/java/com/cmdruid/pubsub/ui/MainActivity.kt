@@ -20,15 +20,18 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
+import com.cmdruid.pubsub.data.BatteryMode
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.data.NotificationFrequency
+import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.databinding.ActivityMainBinding
 import com.cmdruid.pubsub.service.PubSubService
 import com.cmdruid.pubsub.ui.adapters.ConfigurationAdapter
 import com.cmdruid.pubsub.ui.adapters.DebugLogAdapter
 import com.cmdruid.pubsub.utils.DeepLinkHandler
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener {
     
     companion object {
         const val ACTION_DEBUG_LOG = "com.cmdruid.pubsub.DEBUG_LOG"
@@ -42,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var binding: ActivityMainBinding
     private lateinit var configurationManager: ConfigurationManager
+    private lateinit var settingsManager: SettingsManager
     private lateinit var configurationAdapter: ConfigurationAdapter
     private lateinit var debugLogAdapter: DebugLogAdapter
     
@@ -78,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         
         configurationManager = ConfigurationManager(this)
+        settingsManager = SettingsManager(this)
         
         setupToolbar()
         setupConfigurationsRecyclerView()
@@ -87,6 +92,10 @@ class MainActivity : AppCompatActivity() {
         updateServiceStatus()
         refreshConfigurations()
         refreshDebugLogs()
+        
+        // Register for settings changes and apply initial debug console visibility
+        settingsManager.addSettingsChangeListener(this)
+        updateDebugConsoleVisibility()
         
         // Register for debug log broadcasts
         registerReceiver(
@@ -102,6 +111,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(debugLogReceiver)
+        settingsManager.removeSettingsChangeListener(this)
     }
     
     override fun onNewIntent(intent: Intent?) {
@@ -177,7 +187,10 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
             
-
+            settingsButton.setOnClickListener {
+                val intent = SettingsActivity.createIntent(this@MainActivity)
+                startActivity(intent)
+            }
             
             clearLogsButton.setOnClickListener {
                 configurationManager.clearDebugLogs()
@@ -550,5 +563,32 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Error processing registration link:\n\n$errorMessage")
             .setPositiveButton("OK", null)
             .show()
+    }
+    
+    /**
+     * Update debug console visibility based on settings
+     */
+    private fun updateDebugConsoleVisibility() {
+        val shouldShow = settingsManager.shouldShowDebugConsole()
+        
+        // Find the debug console card view by ID
+        val debugConsoleCard = findViewById<View>(R.id.debugConsoleCard)
+        debugConsoleCard?.visibility = if (shouldShow) View.VISIBLE else View.GONE
+    }
+    
+    // SettingsChangeListener implementation
+    override fun onBatteryModeChanged(newMode: BatteryMode) {
+        // MainActivity doesn't need to handle battery mode changes directly
+        // This is handled by the service components
+    }
+    
+    override fun onNotificationFrequencyChanged(newFrequency: NotificationFrequency) {
+        // MainActivity doesn't need to handle notification frequency changes directly
+        // This is handled by the service components
+    }
+    
+    override fun onDebugConsoleVisibilityChanged(visible: Boolean) {
+        // Update debug console visibility when settings change
+        updateDebugConsoleVisibility()
     }
 }

@@ -14,12 +14,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.service.PubSubService
 import com.cmdruid.pubsub.databinding.ActivityConfigurationEditorBinding
 import com.cmdruid.pubsub.nostr.NostrFilter
 import com.cmdruid.pubsub.ui.adapters.RelayUrlAdapter
 import com.cmdruid.pubsub.ui.adapters.TextEntryAdapter
-import com.cmdruid.pubsub.ui.adapters.HashtagAdapter
+import com.cmdruid.pubsub.ui.adapters.CustomTagAdapter
+import com.cmdruid.pubsub.ui.adapters.HashtagsAdapter
 import com.cmdruid.pubsub.ui.adapters.KeywordAdapter
 import com.cmdruid.pubsub.data.HashtagEntry
 import com.cmdruid.pubsub.data.KeywordFilter
@@ -40,12 +42,14 @@ class ConfigurationEditorActivity : AppCompatActivity() {
     
     private lateinit var binding: ActivityConfigurationEditorBinding
     private lateinit var configurationManager: ConfigurationManager
+    private lateinit var settingsManager: SettingsManager
     private lateinit var relayUrlAdapter: RelayUrlAdapter
     private lateinit var authorsAdapter: TextEntryAdapter
     private lateinit var kindsAdapter: TextEntryAdapter
     private lateinit var pubkeyRefsAdapter: TextEntryAdapter
     private lateinit var eventRefsAdapter: TextEntryAdapter
-    private lateinit var hashtagsAdapter: HashtagAdapter
+    private lateinit var hashtagsAdapter: HashtagsAdapter
+    private lateinit var customTagsAdapter: CustomTagAdapter
     private lateinit var keywordsAdapter: KeywordAdapter
     
     private var configurationId: String? = null
@@ -57,6 +61,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         setContentView(binding.root)
         
         configurationManager = ConfigurationManager(this)
+        settingsManager = SettingsManager(this)
         configurationId = intent.getStringExtra(EXTRA_CONFIGURATION_ID)
         isEditMode = configurationId != null
         
@@ -69,9 +74,9 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         if (isEditMode) {
             loadConfiguration()
         } else {
-            // Add default relay and target URI for new configurations
-            relayUrlAdapter.addRelayUrl("wss://relay.damus.io")
-            binding.targetUriEditText.setText("https://njump.me")
+            // Add default relay and target URI from settings for new configurations
+            relayUrlAdapter.addRelayUrl(settingsManager.getDefaultRelayServer())
+            binding.targetUriEditText.setText(settingsManager.getDefaultEventViewer())
         }
     }
     
@@ -133,11 +138,18 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             adapter = eventRefsAdapter
         }
         
-        // Hashtags adapter - simplified flat list approach
-        hashtagsAdapter = HashtagAdapter()
+        // Hashtags adapter - for simple hashtag entries using "t" tag
+        hashtagsAdapter = HashtagsAdapter()
         binding.hashtagsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@ConfigurationEditorActivity)
             adapter = hashtagsAdapter
+        }
+        
+        // Custom tags adapter - for advanced tag/value pairs
+        customTagsAdapter = CustomTagAdapter()
+        binding.customTagsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@ConfigurationEditorActivity)
+            adapter = customTagsAdapter
         }
     }
     
@@ -161,7 +173,8 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             addKindButton.setOnClickListener { kindsAdapter.addEntry() }
             addPubkeyRefButton.setOnClickListener { pubkeyRefsAdapter.addEntry() }
             addEventRefButton.setOnClickListener { eventRefsAdapter.addEntry() }
-            addHashtagButton.setOnClickListener { hashtagsAdapter.addEntry() }
+            addHashtagsButton.setOnClickListener { hashtagsAdapter.addHashtag() }
+            addCustomTagButton.setOnClickListener { customTagsAdapter.addEntry() }
             addKeywordButton.setOnClickListener { 
                 keywordsAdapter.addKeyword()
                 updateKeywordVisibility()
@@ -198,7 +211,14 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         kindsAdapter.setEntries(filter.kinds?.map { it.toString() } ?: emptyList())
         pubkeyRefsAdapter.setEntries(filter.pubkeyRefs ?: emptyList())
         eventRefsAdapter.setEntries(filter.eventRefs ?: emptyList())
-        hashtagsAdapter.setEntries(filter.hashtagEntries ?: emptyList())
+        
+        // Separate hashtag entries into hashtags (t tag) and custom tags (other tags)
+        val allHashtagEntries = filter.hashtagEntries ?: emptyList()
+        val hashtagValues = allHashtagEntries.filter { it.tag.lowercase() == "t" }.map { it.value }
+        val customTagEntries = allHashtagEntries.filter { it.tag.lowercase() != "t" }
+        
+        hashtagsAdapter.setHashtags(hashtagValues)
+        customTagsAdapter.setEntries(customTagEntries)
         
         // Load keyword filter
         keywordsAdapter.setKeywords(configuration.keywordFilter?.keywords ?: emptyList())
@@ -209,7 +229,7 @@ class ConfigurationEditorActivity : AppCompatActivity() {
     
     private fun saveConfiguration() {
         val name = binding.nameEditText.text.toString().trim()
-        val targetUri = binding.targetUriEditText.text.toString().trim()
+        val rawTargetUri = binding.targetUriEditText.text.toString().trim()
         
         // Validate basic fields
         if (name.isBlank()) {
@@ -217,15 +237,18 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             return
         }
         
-        if (targetUri.isBlank()) {
+        if (rawTargetUri.isBlank()) {
             binding.targetUriEditText.error = "Target URI is required"
             return
         }
         
-        if (!UriBuilder.isValidUri(targetUri)) {
+        if (!UriBuilder.isValidUri(rawTargetUri)) {
             binding.targetUriEditText.error = "Invalid URI format"
             return
         }
+        
+        // Normalize the target URI to handle trailing slashes consistently
+        val targetUri = UriBuilder.normalizeTargetUri(rawTargetUri)
         
         // Get relay URLs
         val relayUrls = relayUrlAdapter.getRelayUrls().filter { it.isNotBlank() }
@@ -307,7 +330,19 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         val kinds = kindsAdapter.getEntries().mapNotNull { it.toIntOrNull() }.takeIf { it.isNotEmpty() }
         val pubkeyRefs = pubkeyRefsAdapter.getEntries().takeIf { it.isNotEmpty() }
         val eventRefs = eventRefsAdapter.getEntries().takeIf { it.isNotEmpty() }
-        val hashtagEntries = hashtagsAdapter.getEntries().takeIf { it.isNotEmpty() }
+        
+        // Combine hashtags and custom tags into a single hashtagEntries list
+        val allHashtagEntries = mutableListOf<HashtagEntry>()
+        
+        // Add hashtags as "t" tag entries
+        hashtagsAdapter.getHashtags().forEach { hashtag ->
+            allHashtagEntries.add(HashtagEntry("t", hashtag))
+        }
+        
+        // Add custom tag entries
+        allHashtagEntries.addAll(customTagsAdapter.getEntries())
+        
+        val hashtagEntries = allHashtagEntries.takeIf { it.isNotEmpty() }
         
         return NostrFilter(
             authors = authors,

@@ -10,7 +10,10 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.cmdruid.pubsub.R
+import com.cmdruid.pubsub.data.BatteryMode
 import com.cmdruid.pubsub.data.Configuration
+import com.cmdruid.pubsub.data.NotificationFrequency
+import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.nostr.NostrEvent
 import java.util.concurrent.ConcurrentHashMap
 
@@ -20,8 +23,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class EventNotificationManager(
     private val context: Context,
+    private val settingsManager: SettingsManager,
     private val sendDebugLog: (String) -> Unit
-) {
+) : SettingsManager.SettingsChangeListener {
     
     companion object {
         private const val TAG = "EventNotificationManager"
@@ -39,7 +43,6 @@ class EventNotificationManager(
     // Rate limiting for notifications
     private var lastNotificationTime = 0L
     private var notificationCount = 0
-    private val notificationRateLimit = 5000L // 5 seconds between notifications
     private val maxNotificationsPerHour = 200 // Allow many notifications per hour, cleanup manages UI display
     
     // Track active event notifications for grouping
@@ -58,6 +61,9 @@ class EventNotificationManager(
      */
     fun initialize() {
         createNotificationChannels()
+        
+        // Register for settings changes
+        settingsManager.addSettingsChangeListener(this)
     }
     
     /**
@@ -67,6 +73,9 @@ class EventNotificationManager(
         try {
             notificationManager.cancelAll()
             activeNotifications.clear()
+            
+            // Unregister settings listener
+            settingsManager.removeSettingsChangeListener(this)
         } catch (e: Exception) {
             Log.w(TAG, "Error clearing notifications: ${e.message}")
         }
@@ -137,6 +146,7 @@ class EventNotificationManager(
             return
         }
         
+        val notificationRateLimit = settingsManager.getCurrentNotificationRateLimit()
         if (currentTime - lastNotificationTime < notificationRateLimit) {
             sendDebugLog("⏱️ Too frequent: ${configuration.name} (${(currentTime - lastNotificationTime)/1000}s < ${notificationRateLimit/1000}s)")
             return
@@ -302,8 +312,27 @@ class EventNotificationManager(
             "active_notifications" to activeNotifications.size,
             "notification_count" to notificationCount,
             "last_notification_time" to lastNotificationTime,
-            "rate_limit" to notificationRateLimit,
+            "rate_limit" to settingsManager.getCurrentNotificationRateLimit(),
             "max_per_hour" to maxNotificationsPerHour
         )
+    }
+    
+    // SettingsChangeListener implementation
+    override fun onBatteryModeChanged(newMode: BatteryMode) {
+        // Notification manager doesn't need to handle battery mode changes directly
+        sendDebugLog("🔋 Battery mode changed to: ${newMode.displayName}")
+    }
+    
+    override fun onNotificationFrequencyChanged(newFrequency: NotificationFrequency) {
+        sendDebugLog("🔔 Notification frequency changed to: ${newFrequency.displayName}")
+        
+        // Log the new rate limit for debugging
+        val newRateLimit = settingsManager.getCurrentNotificationRateLimit()
+        sendDebugLog("🔔 New notification rate limit: ${newRateLimit / 1000}s between notifications")
+    }
+    
+    override fun onDebugConsoleVisibilityChanged(visible: Boolean) {
+        // Notification manager doesn't need to handle debug console visibility changes
+        sendDebugLog("🐛 Debug console visibility changed to: $visible")
     }
 }

@@ -97,8 +97,17 @@ data class NostrFilter(
         }
         
         hashtagEntries?.takeIf { it.isNotEmpty() }?.let { entries ->
-            val tagSummary = entries.map { "${it.tag}:${it.value}" }.joinToString(",")
-            parts.add("hashtags: $tagSummary")
+            val hashtagCount = entries.count { it.tag.lowercase() == "t" }
+            val customCount = entries.count { it.tag.lowercase() != "t" }
+            
+            if (hashtagCount > 0) {
+                parts.add("${hashtagCount} hashtag${if (hashtagCount != 1) "s" else ""}")
+            }
+            if (customCount > 0) {
+                val customSummary = entries.filter { it.tag.lowercase() != "t" }
+                    .map { "${it.tag}:${it.value}" }.joinToString(",")
+                parts.add("custom tags: $customSummary")
+            }
         }
         
         search?.takeIf { it.isNotBlank() }?.let {

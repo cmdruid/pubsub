@@ -5,17 +5,19 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.cmdruid.pubsub.databinding.ItemHashtagBinding
+import com.cmdruid.pubsub.databinding.ItemCustomTagBinding
 import com.cmdruid.pubsub.data.HashtagEntry
 
 /**
- * Adapter for managing hashtag entries with separate tag and value fields
- * According to NIP-01, tags should be single letters (a-z, A-Z)
+ * Adapter for managing custom tag entries with separate tag and value fields
+ * This is for the "Custom Tags" section which allows arbitrary single-letter tags
+ * (as opposed to HashtagsAdapter which handles simple hashtags using the "t" tag)
  * 
+ * According to NIP-01, tags should be single letters (a-z, A-Z)
  * Simplified UX: Users can add multiple entries with the same tag,
  * and they will be automatically consolidated during serialization.
  */
-class HashtagAdapter : RecyclerView.Adapter<HashtagAdapter.HashtagViewHolder>() {
+class CustomTagAdapter : RecyclerView.Adapter<CustomTagAdapter.CustomTagViewHolder>() {
     
     private var entries = mutableListOf<HashtagEntry>()
     
@@ -50,23 +52,23 @@ class HashtagAdapter : RecyclerView.Adapter<HashtagAdapter.HashtagViewHolder>() 
         notifyDataSetChanged()
     }
     
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HashtagViewHolder {
-        val binding = ItemHashtagBinding.inflate(
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CustomTagViewHolder {
+        val binding = ItemCustomTagBinding.inflate(
             LayoutInflater.from(parent.context),
             parent,
             false
         )
-        return HashtagViewHolder(binding)
+        return CustomTagViewHolder(binding)
     }
     
-    override fun onBindViewHolder(holder: HashtagViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: CustomTagViewHolder, position: Int) {
         holder.bind(entries[position], position)
     }
     
     override fun getItemCount(): Int = entries.size
     
-    inner class HashtagViewHolder(
-        private val binding: ItemHashtagBinding
+    inner class CustomTagViewHolder(
+        private val binding: ItemCustomTagBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         
         private var tagTextWatcher: TextWatcher? = null
@@ -139,8 +141,8 @@ class HashtagAdapter : RecyclerView.Adapter<HashtagAdapter.HashtagViewHolder>() 
                     !entry.tag.matches(Regex("[a-zA-Z]")) -> {
                         tagInputLayout.error = "Tag must be a letter (a-z, A-Z)"
                     }
-                    entry.tag.lowercase() in listOf("e", "p") -> {
-                        tagInputLayout.error = "Tags 'e' and 'p' are reserved for event/pubkey refs"
+                    entry.tag.lowercase() in listOf("e", "p", "t") -> {
+                        tagInputLayout.error = "Tags 'e', 'p', and 't' are reserved for dedicated sections"
                     }
                     else -> {
                         tagInputLayout.error = null

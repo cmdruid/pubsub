@@ -356,7 +356,7 @@
                         android:background="#40FFFFFF"
                         android:layout_marginBottom="16dp" />
 
-                    <!-- Hashtags -->
+                    <!-- Hash Tags -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -368,12 +368,12 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Search Tags"
+                            android:text="Hash Tags"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/addHashtagButton"
+                            android:id="@+id/addHashtagsButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Add Hashtag"
@@ -384,13 +384,59 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Events with these hashtag filters (single letter tags a-z, A-Z with values). You can add multiple entries with the same tag."
+                        android:text="Events with these hashtags (single words only). Uses the 't' tag internally."
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
 
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/hashtagsRecyclerView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false"
+                        android:layout_marginBottom="16dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#40FFFFFF"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Custom Tags -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Custom Tags"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/addCustomTagButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Add Custom Tag"
+                            style="@style/Widget.App.Button.Outlined" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Events with custom tag filters (single letter tags a-z, A-Z with values, except reserved tags). You can add multiple entries with the same tag."
+                        android:textSize="12sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="8dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/customTagsRecyclerView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:nestedScrollingEnabled="false"

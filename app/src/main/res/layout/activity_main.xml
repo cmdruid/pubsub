@@ -51,6 +51,16 @@
                     android:layout_weight="1" />
 
                 <ImageButton
+                    android:id="@+id/settingsButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Settings"
+                    android:src="@drawable/ic_settings"
+                    android:tint="@color/terminal_orange_secondary"
+                    android:layout_marginEnd="8dp" />
+
+                <ImageButton
                     android:id="@+id/closeButton"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
@@ -179,6 +189,7 @@
 
             <!-- Debug Console Section -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/debugConsoleCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"

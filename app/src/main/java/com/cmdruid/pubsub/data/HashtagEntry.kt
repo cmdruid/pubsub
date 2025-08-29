@@ -10,13 +10,13 @@ data class HashtagEntry(
 ) {
     /**
      * Validate that the tag is a single character within a-z and A-Z
-     * For UI purposes, excludes reserved tags 'e' and 'p' which have dedicated UI fields
-     * Note: This validation is for manual user input - external filters can still use e/p tags
+     * For UI purposes, excludes reserved tags 'e', 'p', and 't' which have dedicated UI fields
+     * Note: This validation is for manual user input - external filters can still use reserved tags
      */
     fun isValid(): Boolean {
         return tag.length == 1 && 
                tag.matches(Regex("[a-zA-Z]")) && 
-               tag !in listOf("e", "p", "E", "P") && // Prevent UI confusion with dedicated fields
+               tag !in listOf("e", "p", "t", "E", "P", "T") && // Prevent UI confusion with dedicated fields
                value.isNotBlank()
     }
     

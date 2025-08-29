@@ -20,23 +20,28 @@ object UriBuilder {
         .create()
     
     /**
-     * Build a URI with note identifier and optional event data
-     * Format: {baseUri}/{note}?event=base64url_encoded_json
-     * If event size exceeds 500KB, only the note identifier is included
+     * Build a URI with nevent identifier and optional event data
+     * Format: {baseUri}/{nevent}?event=base64url_encoded_json
+     * If event size exceeds 500KB, only the nevent identifier is included
      */
-    fun buildEventUri(baseUri: String, event: NostrEvent): Uri? {
+    fun buildEventUri(baseUri: String, event: NostrEvent, relayUrls: List<String> = emptyList()): Uri? {
         return try {
-            // Encode event ID as note (NIP-19) - simpler than nevent
-            val note = NostrUtils.hexToNote(event.id) ?: return null
+            // Encode event ID as nevent (NIP-19) with TLV structure including relay URLs
+            val nevent = NostrUtils.hexToNevent(
+                eventId = event.id, 
+                relayUrls = relayUrls,
+                authorPubkey = event.pubkey,
+                kind = event.kind
+            ) ?: return null
             
             // Serialize the event to JSON
             val eventJson = gson.toJson(event)
             val eventSizeBytes = eventJson.toByteArray(StandardCharsets.UTF_8).size
             val maxSizeBytes = 500 * 1024 // 500KB
             
-            // Build URI: {baseUri}/{note}
+            // Build URI: {baseUri}/{nevent} - handle trailing slashes properly
             val baseUriWithSlash = if (baseUri.endsWith("/")) baseUri else "$baseUri/"
-            val uriWithNote = "$baseUriWithSlash$note"
+            val uriWithNevent = "$baseUriWithSlash$nevent"
             
             // Only include the event data if it's under 500KB
             if (eventSizeBytes <= maxSizeBytes) {
@@ -45,12 +50,12 @@ object UriBuilder {
                     eventJson.toByteArray(StandardCharsets.UTF_8),
                     Base64.URL_SAFE or Base64.NO_WRAP
                 )
-                Uri.parse(uriWithNote).buildUpon().apply {
+                Uri.parse(uriWithNevent).buildUpon().apply {
                     appendQueryParameter("event", eventBase64)
                 }.build()
             } else {
-                // If event is too large, only include the note identifier
-                Uri.parse(uriWithNote)
+                // If event is too large, only include the nevent identifier
+                Uri.parse(uriWithNevent)
             }
         } catch (e: Exception) {
             null
@@ -115,31 +120,41 @@ object UriBuilder {
     }
     
     /**
-     * Extract note identifier from a URI path
+     * Extract nevent identifier from a URI path
      */
-    fun extractNoteFromUri(uri: Uri): String? {
+    fun extractNeventFromUri(uri: Uri): String? {
         return try {
             val path = uri.path ?: return null
             
-            // Extract the last path segment which should be the note
+            // Extract the last path segment which should be the nevent
             val lastSegment = path.substringAfterLast("/")
-            if (NostrUtils.isValidNote(lastSegment)) lastSegment else null
+            if (NostrUtils.isValidNevent(lastSegment)) lastSegment else null
         } catch (e: Exception) {
             null
         }
     }
     
-
-    
     /**
-     * Get event ID from note in a URI
+     * Get event ID from nevent in a URI
      */
     fun getEventIdFromUri(uri: Uri): String? {
         return try {
-            val note = extractNoteFromUri(uri) ?: return null
-            NostrUtils.noteToHex(note)
+            val nevent = extractNeventFromUri(uri) ?: return null
+            NostrUtils.neventToHex(nevent)
         } catch (e: Exception) {
             null
+        }
+    }
+    
+    /**
+     * Extract relay URLs from nevent in a URI
+     */
+    fun extractRelayUrlsFromUri(uri: Uri): List<String> {
+        return try {
+            val nevent = extractNeventFromUri(uri) ?: return emptyList()
+            NostrUtils.extractRelaysFromNevent(nevent)
+        } catch (e: Exception) {
+            emptyList()
         }
     }
     
@@ -222,11 +237,25 @@ object UriBuilder {
     }
     
     /**
+     * Normalize a target URI by handling trailing slashes consistently
+     */
+    fun normalizeTargetUri(uriString: String): String {
+        val trimmed = uriString.trim()
+        return if (trimmed.endsWith("/")) {
+            trimmed.dropLast(1)
+        } else {
+            trimmed
+        }
+    }
+    
+    /**
      * Validate if a URI string is properly formatted
+     * Also handles trailing slashes by normalizing before validation
      */
     fun isValidUri(uriString: String): Boolean {
         return try {
-            val uri = Uri.parse(uriString)
+            val normalizedUri = normalizeTargetUri(uriString)
+            val uri = Uri.parse(normalizedUri)
             uri.scheme != null && uri.host != null
         } catch (e: Exception) {
             false

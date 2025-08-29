@@ -20,13 +20,13 @@ class DeepLinkCompatibilityTest {
     
     @Test
     fun testHashtagFilterSerialization() {
-        // Create a filter with new hashtag structure
+        // Create a filter with new hashtag structure - using non-reserved tags
         val filter = NostrFilter(
             kinds = listOf(1),
             hashtagEntries = listOf(
-                HashtagEntry("t", "bitcoin"),
-                HashtagEntry("p", "nostr"),
-                HashtagEntry("n", "test")
+                HashtagEntry("n", "bitcoin"),
+                HashtagEntry("l", "nostr"),
+                HashtagEntry("c", "test")
             ),
             authors = listOf("abc123def456"),
             limit = 20
@@ -37,9 +37,9 @@ class DeepLinkCompatibilityTest {
         println("Generated JSON for deep link: $json")
         
         // Verify it produces the correct NIP-01 format
-        assertTrue("Should contain #t field", json.contains("\"#t\":[\"bitcoin\"]"))
-        assertTrue("Should contain #p field", json.contains("\"#p\":[\"nostr\"]"))
-        assertTrue("Should contain #n field", json.contains("\"#n\":[\"test\"]"))
+        assertTrue("Should contain #n field", json.contains("\"#n\":[\"bitcoin\"]"))
+        assertTrue("Should contain #l field", json.contains("\"#l\":[\"nostr\"]"))
+        assertTrue("Should contain #c field", json.contains("\"#c\":[\"test\"]"))
         assertTrue("Should contain authors field", json.contains("\"authors\":[\"abc123def456\"]"))
         assertTrue("Should contain kinds field", json.contains("\"kinds\":[1]"))
         assertTrue("Should contain limit field", json.contains("\"limit\":20"))
@@ -50,8 +50,8 @@ class DeepLinkCompatibilityTest {
     
     @Test
     fun testHashtagFilterDeserialization() {
-        // Simulate JSON that would come from a deep link (avoiding reserved #p)
-        val json = """{"kinds":[1],"authors":["abc123def456"],"#t":["bitcoin"],"#n":["nostr"],"#l":["test"],"limit":20}"""
+        // Simulate JSON that would come from a deep link (using non-reserved tags)
+        val json = """{"kinds":[1],"authors":["abc123def456"],"#n":["bitcoin"],"#l":["nostr"],"#c":["test"],"limit":20}"""
         
         // Parse it back (this is what happens when processing a deep link)
         val filter = gson.fromJson(json, NostrFilter::class.java)
@@ -64,20 +64,20 @@ class DeepLinkCompatibilityTest {
         
         // Verify hashtag entries are correctly reconstructed
         val hashtagMap = filter.hashtagEntries?.associateBy { it.tag }
-        assertEquals("bitcoin", hashtagMap?.get("t")?.value)
-        assertEquals("nostr", hashtagMap?.get("n")?.value)
-        assertEquals("test", hashtagMap?.get("l")?.value)
+        assertEquals("bitcoin", hashtagMap?.get("n")?.value)
+        assertEquals("nostr", hashtagMap?.get("l")?.value)
+        assertEquals("test", hashtagMap?.get("c")?.value)
     }
     
     @Test
     fun testRoundTripCompatibility() {
-        // Original filter with various hashtag types
+        // Original filter with various hashtag types - using non-reserved tags
         val originalFilter = NostrFilter(
             authors = listOf("deadbeef"),
             kinds = listOf(1, 7),
             hashtagEntries = listOf(
-                HashtagEntry("t", "bitcoin"),
-                HashtagEntry("n", "somevalue"),
+                HashtagEntry("n", "bitcoin"),
+                HashtagEntry("m", "somevalue"),
                 HashtagEntry("l", "label"),
                 HashtagEntry("c", "category")
             ),
@@ -120,7 +120,7 @@ class DeepLinkCompatibilityTest {
         println("Empty hashtags JSON: $json")
         
         // Should not contain any hashtag fields
-        assertFalse("Should not contain #t", json.contains("\"#t\""))
+        assertFalse("Should not contain #n", json.contains("\"#n\""))
         assertFalse("Should not contain #p", json.contains("\"#p\""))
         assertFalse("Should not contain hashtagEntries", json.contains("hashtagEntries"))
         
@@ -131,13 +131,13 @@ class DeepLinkCompatibilityTest {
     
     @Test
     fun testMultipleValuesPerTag() {
-        // Test filter with multiple values for the same tag
+        // Test filter with multiple values for the same tag - using non-reserved tags
         val filter = NostrFilter(
             hashtagEntries = listOf(
-                HashtagEntry("t", "bitcoin"),
-                HashtagEntry("t", "nostr"),
-                HashtagEntry("n", "alice"),
-                HashtagEntry("n", "bob")
+                HashtagEntry("n", "bitcoin"),
+                HashtagEntry("n", "nostr"),
+                HashtagEntry("l", "alice"),
+                HashtagEntry("l", "bob")
             )
         )
         
@@ -145,12 +145,12 @@ class DeepLinkCompatibilityTest {
         println("Multiple values JSON: $json")
         
         // Should group values by tag
-        assertTrue("Should contain bitcoin and nostr in #t", 
-                   json.contains("\"#t\":[\"bitcoin\",\"nostr\"]") ||
-                   json.contains("\"#t\":[\"nostr\",\"bitcoin\"]"))
-        assertTrue("Should contain alice and bob in #n", 
-                   json.contains("\"#n\":[\"alice\",\"bob\"]") ||
-                   json.contains("\"#n\":[\"bob\",\"alice\"]"))
+        assertTrue("Should contain bitcoin and nostr in #n", 
+                   json.contains("\"#n\":[\"bitcoin\",\"nostr\"]") ||
+                   json.contains("\"#n\":[\"nostr\",\"bitcoin\"]"))
+        assertTrue("Should contain alice and bob in #l", 
+                   json.contains("\"#l\":[\"alice\",\"bob\"]") ||
+                   json.contains("\"#l\":[\"bob\",\"alice\"]"))
         
         val deserializedFilter = gson.fromJson(json, NostrFilter::class.java)
         assertEquals("Should have 4 hashtag entries", 4, deserializedFilter.hashtagEntries?.size)
@@ -159,7 +159,7 @@ class DeepLinkCompatibilityTest {
     @Test
     fun testTagValidation() {
         // Test that only valid single-letter tags work
-        val validEntry = HashtagEntry("t", "bitcoin")
+        val validEntry = HashtagEntry("n", "bitcoin") // Use non-reserved tag
         val validEntry2 = HashtagEntry("l", "label")
         val invalidEntry = HashtagEntry("tag", "bitcoin") // Too long
         val invalidEntry2 = HashtagEntry("1", "bitcoin") // Number
@@ -167,8 +167,10 @@ class DeepLinkCompatibilityTest {
         val reservedEntry2 = HashtagEntry("p", "pubkey") // Reserved for pubkey refs
         val reservedEntry3 = HashtagEntry("E", "eventref") // Reserved (uppercase)
         val reservedEntry4 = HashtagEntry("P", "pubkey") // Reserved (uppercase)
+        val reservedEntry5 = HashtagEntry("t", "hashtag") // Reserved for hashtags
+        val reservedEntry6 = HashtagEntry("T", "hashtag") // Reserved (uppercase)
         
-        assertTrue("Valid entry 't' should be valid", validEntry.isValid())
+        assertTrue("Valid entry 'n' should be valid", validEntry.isValid())
         assertTrue("Valid entry 'l' should be valid", validEntry2.isValid())
         assertFalse("Multi-char tag should be invalid", invalidEntry.isValid())
         assertFalse("Numeric tag should be invalid", invalidEntry2.isValid())
@@ -176,6 +178,8 @@ class DeepLinkCompatibilityTest {
         assertFalse("Reserved tag 'p' should be invalid", reservedEntry2.isValid())
         assertFalse("Reserved tag 'E' should be invalid", reservedEntry3.isValid())
         assertFalse("Reserved tag 'P' should be invalid", reservedEntry4.isValid())
+        assertFalse("Reserved tag 't' should be invalid", reservedEntry5.isValid())
+        assertFalse("Reserved tag 'T' should be invalid", reservedEntry6.isValid())
     }
     
     @Test
@@ -186,7 +190,7 @@ class DeepLinkCompatibilityTest {
             authors = listOf("author1", "author2"), 
             kinds = listOf(1, 7),
             hashtagEntries = listOf(
-                HashtagEntry("t", "bitcoin"),
+                HashtagEntry("n", "bitcoin"),
                 HashtagEntry("l", "somelabel") // Use non-conflicting tags
             ),
             since = 1234567890L,
@@ -202,7 +206,7 @@ class DeepLinkCompatibilityTest {
         assertTrue("Should contain authors", json.contains("\"authors\":"))
         assertTrue("Should contain kinds", json.contains("\"kinds\":"))
         // Note: We removed eventRefs and pubkeyRefs to avoid conflicts with hashtag entries
-        assertTrue("Should contain #t for hashtags", json.contains("\"#t\":[\"bitcoin\"]"))
+        assertTrue("Should contain #n for hashtags", json.contains("\"#n\":[\"bitcoin\"]"))
         assertTrue("Should contain #l for hashtag entries", json.contains("\"#l\":[\"somelabel\"]"))
         assertTrue("Should contain since", json.contains("\"since\":1234567890"))
         assertTrue("Should contain until", json.contains("\"until\":1234567999"))
@@ -219,7 +223,7 @@ class DeepLinkCompatibilityTest {
     @Test
     fun testReservedTagsHandling() {
         // Test that #e and #p tags are properly handled as standard NIP-01 fields
-        val jsonWithReservedTags = """{"kinds":[1],"#e":["eventref"],"#p":["pubkey"],"#t":["bitcoin"],"#l":["label"]}"""
+        val jsonWithReservedTags = """{"kinds":[1],"#e":["eventref"],"#p":["pubkey"],"#n":["bitcoin"],"#l":["label"]}"""
         
         val filter = gson.fromJson(jsonWithReservedTags, NostrFilter::class.java)
         
@@ -231,7 +235,7 @@ class DeepLinkCompatibilityTest {
         assertEquals("Should have 2 hashtag entries", 2, filter.hashtagEntries?.size)
         
         val hashtagMap = filter.hashtagEntries?.associateBy { it.tag }
-        assertEquals("Should have 't' tag", "bitcoin", hashtagMap?.get("t")?.value)
+        assertEquals("Should have 'n' tag", "bitcoin", hashtagMap?.get("n")?.value)
         assertEquals("Should have 'l' tag", "label", hashtagMap?.get("l")?.value)
         assertNull("Should not have 'e' in hashtag entries (goes to eventRefs)", hashtagMap?.get("e"))
         assertNull("Should not have 'p' in hashtag entries (goes to pubkeyRefs)", hashtagMap?.get("p"))
@@ -246,8 +250,8 @@ class DeepLinkCompatibilityTest {
             kinds = listOf(1),
             authors = listOf("abcd1234"),
             hashtagEntries = listOf(
-                HashtagEntry("t", "bitcoin"),
-                HashtagEntry("n", "nostr"),
+                HashtagEntry("n", "bitcoin"),
+                HashtagEntry("m", "nostr"),
                 HashtagEntry("l", "test")
             ),
             limit = 25
@@ -258,8 +262,8 @@ class DeepLinkCompatibilityTest {
         println("Deep link filter JSON: $json")
         
         // 3. Verify proper NIP-01 format
-        assertTrue("Should contain #t", json.contains("\"#t\":[\"bitcoin\"]"))
-        assertTrue("Should contain #n", json.contains("\"#n\":[\"nostr\"]"))
+        assertTrue("Should contain #n", json.contains("\"#n\":[\"bitcoin\"]"))
+        assertTrue("Should contain #m", json.contains("\"#m\":[\"nostr\"]"))
         assertTrue("Should contain #l", json.contains("\"#l\":[\"test\"]"))
         assertFalse("Should not leak internal fields", json.contains("hashtagEntries"))
         
@@ -291,9 +295,9 @@ class DeepLinkCompatibilityTest {
         val filterWithMultipleValues = NostrFilter(
             kinds = listOf(1),
             hashtagEntries = listOf(
-                HashtagEntry("t", "bitcoin"),
-                HashtagEntry("t", "nostr"), 
-                HashtagEntry("t", "lightning"),
+                HashtagEntry("n", "bitcoin"),
+                HashtagEntry("n", "nostr"), 
+                HashtagEntry("n", "lightning"),
                 HashtagEntry("l", "news"),
                 HashtagEntry("l", "analysis")
             )
@@ -304,13 +308,13 @@ class DeepLinkCompatibilityTest {
         println("Multiple values JSON: $json")
         
         // Should group values by tag correctly
-        assertTrue("Should contain bitcoin, nostr, lightning in #t", 
-                   json.contains("\"#t\":[\"bitcoin\",\"nostr\",\"lightning\"]") ||
-                   json.contains("\"#t\":[\"bitcoin\",\"lightning\",\"nostr\"]") ||
-                   json.contains("\"#t\":[\"nostr\",\"bitcoin\",\"lightning\"]") ||
-                   json.contains("\"#t\":[\"nostr\",\"lightning\",\"bitcoin\"]") ||
-                   json.contains("\"#t\":[\"lightning\",\"bitcoin\",\"nostr\"]") ||
-                   json.contains("\"#t\":[\"lightning\",\"nostr\",\"bitcoin\"]"))
+        assertTrue("Should contain bitcoin, nostr, lightning in #n", 
+                   json.contains("\"#n\":[\"bitcoin\",\"nostr\",\"lightning\"]") ||
+                   json.contains("\"#n\":[\"bitcoin\",\"lightning\",\"nostr\"]") ||
+                   json.contains("\"#n\":[\"nostr\",\"bitcoin\",\"lightning\"]") ||
+                   json.contains("\"#n\":[\"nostr\",\"lightning\",\"bitcoin\"]") ||
+                   json.contains("\"#n\":[\"lightning\",\"bitcoin\",\"nostr\"]") ||
+                   json.contains("\"#n\":[\"lightning\",\"nostr\",\"bitcoin\"]"))
         
         assertTrue("Should contain news, analysis in #l",
                    json.contains("\"#l\":[\"news\",\"analysis\"]") ||
@@ -325,10 +329,10 @@ class DeepLinkCompatibilityTest {
         // Verify by grouping
         val parsedByTag = parsedFilter.hashtagEntries?.groupBy { it.tag }
         
-        val tValues = parsedByTag?.get("t")?.map { it.value }?.sorted()
+        val nValues = parsedByTag?.get("n")?.map { it.value }?.sorted()
         val lValues = parsedByTag?.get("l")?.map { it.value }?.sorted()
         
-        assertEquals("Should have 3 't' values", listOf("bitcoin", "lightning", "nostr"), tValues)
+        assertEquals("Should have 3 'n' values", listOf("bitcoin", "lightning", "nostr"), nValues)
         assertEquals("Should have 2 'l' values", listOf("analysis", "news"), lValues)
         
         println("✅ Multiple values per tag work correctly in deep links!")

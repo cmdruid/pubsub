@@ -216,7 +216,7 @@ class MessageHandler(
             sendDebugLog("📋 Event ${event.id.take(8)}... (no keyword filter)")
         }
         
-        val eventUri = UriBuilder.buildEventUri(configuration.targetUri, event)
+        val eventUri = UriBuilder.buildEventUri(configuration.targetUri, event, configuration.relayUrls)
         if (eventUri == null) {
             sendDebugLog("❌ Failed to build event URI for ${configuration.name}")
             return

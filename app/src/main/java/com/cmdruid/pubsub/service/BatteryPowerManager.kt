@@ -9,6 +9,9 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.util.Log
+import com.cmdruid.pubsub.data.BatteryMode
+import com.cmdruid.pubsub.data.NotificationFrequency
+import com.cmdruid.pubsub.data.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -22,10 +25,11 @@ class BatteryPowerManager(
     private val context: Context,
     private val batteryOptimizationLogger: BatteryOptimizationLogger,
     private val batteryMetricsCollector: BatteryMetricsCollector,
+    private val settingsManager: SettingsManager,
     private val onAppStateChange: (PubSubService.AppState, Long) -> Unit,
     private val onPingIntervalChange: () -> Unit,
     private val sendDebugLog: (String) -> Unit
-) {
+) : SettingsManager.SettingsChangeListener {
     
     companion object {
         private const val TAG = "BatteryPowerManager"
@@ -116,6 +120,9 @@ class BatteryPowerManager(
         setupBatteryMonitoring()
         setupStandbyMonitoring()
         registerReceivers()
+        
+        // Register for settings changes
+        settingsManager.addSettingsChangeListener(this)
     }
     
     /**
@@ -124,6 +131,9 @@ class BatteryPowerManager(
     fun cleanup() {
         releaseWakeLock()
         unregisterReceivers()
+        
+        // Unregister settings listener
+        settingsManager.removeSettingsChangeListener(this)
     }
     
     // Getters for current state
@@ -631,29 +641,32 @@ class BatteryPowerManager(
      * Calculate optimal ping interval based on app state and battery conditions
      */
     private fun calculateOptimalPingInterval(): Long {
+        // Get ping intervals from settings based on current battery mode
+        val pingIntervals = settingsManager.getCurrentPingIntervals()
+        
         // Start with base interval based on app state
         val baseInterval = when (currentAppState) {
-            PubSubService.AppState.FOREGROUND -> PING_INTERVAL_FOREGROUND_SECONDS
-            PubSubService.AppState.BACKGROUND -> PING_INTERVAL_BACKGROUND_SECONDS
-            PubSubService.AppState.DOZE -> PING_INTERVAL_DOZE_SECONDS
-            PubSubService.AppState.RARE -> PING_INTERVAL_RARE_SECONDS
-            PubSubService.AppState.RESTRICTED -> PING_INTERVAL_RESTRICTED_SECONDS
+            PubSubService.AppState.FOREGROUND -> pingIntervals.foreground
+            PubSubService.AppState.BACKGROUND -> pingIntervals.background
+            PubSubService.AppState.DOZE -> pingIntervals.doze
+            PubSubService.AppState.RARE -> pingIntervals.rare
+            PubSubService.AppState.RESTRICTED -> pingIntervals.restricted
         }
         
         // Apply battery level optimization
         val batteryOptimizedInterval = when {
             currentBatteryLevel <= BATTERY_LEVEL_CRITICAL -> {
                 // Critical battery - use ultra-conservative interval regardless of state
-                maxOf(baseInterval, PING_INTERVAL_CRITICAL_BATTERY_SECONDS)
+                maxOf(baseInterval, pingIntervals.criticalBattery)
             }
             currentBatteryLevel <= BATTERY_LEVEL_LOW -> {
                 // Low battery - use conservative interval regardless of state
-                maxOf(baseInterval, PING_INTERVAL_LOW_BATTERY_SECONDS)
+                maxOf(baseInterval, pingIntervals.lowBattery)
             }
             isCharging && currentBatteryLevel >= BATTERY_LEVEL_HIGH -> {
                 // High battery and charging - can be more aggressive in foreground
                 if (currentAppState == PubSubService.AppState.FOREGROUND) {
-                    minOf(baseInterval, 15L) // 15 seconds when charging and high battery
+                    minOf(baseInterval, pingIntervals.foreground / 2) // Half the foreground interval when charging
                 } else {
                     baseInterval
                 }
@@ -796,5 +809,44 @@ class BatteryPowerManager(
             UsageStatsManager.STANDBY_BUCKET_RESTRICTED -> "RESTRICTED"
             else -> "UNKNOWN($bucket)"
         }
+    }
+    
+    // SettingsChangeListener implementation
+    override fun onBatteryModeChanged(newMode: BatteryMode) {
+        sendDebugLog("🔋 Battery mode changed to: ${newMode.displayName}")
+        
+        // Recalculate ping interval with new battery mode
+        val oldInterval = currentPingInterval
+        val newInterval = calculateOptimalPingInterval()
+        
+        if (oldInterval != newInterval) {
+            currentPingInterval = newInterval
+            onPingIntervalChange()
+            
+            sendDebugLog("🔋 Ping interval updated due to battery mode change: ${oldInterval}s → ${newInterval}s")
+            
+            batteryOptimizationLogger.logOptimization(
+                category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
+                message = "Battery mode changed by user",
+                data = mapOf(
+                    "new_mode" to newMode.displayName,
+                    "old_ping_interval" to "${oldInterval}s",
+                    "new_ping_interval" to "${newInterval}s",
+                    "app_state" to currentAppState.name
+                )
+            )
+        }
+    }
+    
+    override fun onNotificationFrequencyChanged(newFrequency: NotificationFrequency) {
+        // Battery manager doesn't need to handle notification frequency changes
+        // This is handled by the EventNotificationManager
+        sendDebugLog("🔔 Notification frequency changed to: ${newFrequency.displayName}")
+    }
+    
+    override fun onDebugConsoleVisibilityChanged(visible: Boolean) {
+        // Battery manager doesn't need to handle debug console visibility changes
+        // This is handled by the UI components
+        sendDebugLog("🐛 Debug console visibility changed to: $visible")
     }
 }

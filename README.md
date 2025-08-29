@@ -12,11 +12,11 @@
 
 ## Features
 
-- 🔗 **Persistent Connection**: Stay connected to relays in the background and across device restarts.
-- 🎯 **Event Subscription**: Subscribe to relay events based on standard NIP-1 filters.
-- 📱 **Notification Links**: Receive event notifications that link to your custom call-back URI.
-- 🌐 **App Registration**: Register subscriptions through `pubsub://` link.
-- 🔋 **Battery Optimized**: Follows Android best practices for background services.
+- 🔗 **Persistent Connection**: Stay connected to relays in the background, while surviving Android's agressive power management.
+- 🎯 **Event Subscription**: Subscribe to relay events based on standard NIP-1 filters, plus hashtags and content filters.
+- 📱 **Notification Links**: Receive notifications from your event subscriptions, with NIP-19 `nevent` links to your own custom URI.
+- 🌐 **App Registration**: Register subscriptions through `pubsub://` link for tight integration with other apps on your device.
+- 🔋 **Battery Optimized**: Follows all of Android's best practices for background services and power management.
 
 ## Screenshots
 
@@ -39,31 +39,6 @@ The app supports multiple subscription configurations:
 The app supports deep link registration via the `pubsub://register` scheme for easy configuration from web applications.
 
 ## Development
-
-### Project Structure
-
-```
-app/src/main/java/com/pubsub/
-├── ui/                 # User interface components
-│   ├── MainActivity.kt # Main configuration activity
-│   ├── ConfigurationEditorActivity.kt # Subscription editor
-│   └── adapters/       # RecyclerView adapters
-├── service/            # Background service components
-│   ├── PubSubService.kt # Main background service
-│   └── BootReceiver.kt # Boot receiver for auto-start
-├── nostr/             # Nostr protocol implementation
-│   ├── NostrEvent.kt  # Event data model
-│   ├── NostrFilter.kt # Filter data model
-│   └── NostrMessage.kt # Message parsing utilities
-├── data/              # Data models and management
-│   ├── Configuration.kt # Subscription configuration
-│   └── ConfigurationManager.kt # Configuration persistence
-└── utils/             # Utility classes
-    ├── PreferencesManager.kt # Settings management
-    ├── UriBuilder.kt  # URI building utilities
-    ├── NostrUtils.kt  # Nostr helper functions
-    └── DeepLinkHandler.kt # Deep link processing
-```
 
 ### Prerequisites
 

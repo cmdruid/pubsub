@@ -72,52 +72,163 @@ object NostrUtils {
         }
     }
     
+    
+    
     /**
-     * Encode hex event ID to note (NIP-19) - simpler than nevent, no TLV needed
+     * Check if a string is a valid nevent (Nostr event with TLV data in bech32 format)
      */
-    fun hexToNote(hex: String): String? {
+    fun isValidNevent(nevent: String): Boolean {
+        return nevent.startsWith("nevent1") && nevent.length >= 50
+    }
+    
+    /**
+     * Check if a string is a valid event identifier (nevent only)
+     */
+    fun isValidEventIdentifier(identifier: String): Boolean {
+        return isValidNevent(identifier)
+    }
+    
+    /**
+     * Encode hex event ID to nevent (NIP-19) with TLV structure including relay URLs
+     */
+    fun hexToNevent(eventId: String, relayUrls: List<String> = emptyList(), authorPubkey: String? = null, kind: Int? = null): String? {
         return try {
-            if (hex.length != 64 || !hex.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+            if (eventId.length != 64 || !eventId.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
                 return null
             }
             
-            // Convert hex to bytes
-            val bytes = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-            if (bytes.size != 32) return null
+            // Convert hex event ID to bytes
+            val eventIdBytes = eventId.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            if (eventIdBytes.size != 32) return null
             
-            // Use simple bech32 encoding for note (no TLV structure needed)
-            bech32Encode("note", bytes)
+            // Build TLV data
+            val tlvData = mutableListOf<Byte>()
+            
+            // Type 0: Event ID (32 bytes)
+            tlvData.add(0) // type
+            tlvData.add(32) // length
+            tlvData.addAll(eventIdBytes.toList())
+            
+            // Type 1: Relay URLs (can be multiple)
+            for (relayUrl in relayUrls) {
+                if (relayUrl.isNotBlank()) { // Skip empty/blank relay URLs
+                    val relayBytes = relayUrl.toByteArray(Charsets.UTF_8)
+                    if (relayBytes.size <= 255) { // TLV length field is 1 byte
+                        tlvData.add(1) // type
+                        tlvData.add(relayBytes.size.toByte()) // length
+                        tlvData.addAll(relayBytes.toList())
+                    }
+                }
+            }
+            
+            // Type 2: Author pubkey (optional, 32 bytes)
+            authorPubkey?.let { pubkey ->
+                if (pubkey.length == 64 && pubkey.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+                    val pubkeyBytes = pubkey.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    if (pubkeyBytes.size == 32) {
+                        tlvData.add(2) // type
+                        tlvData.add(32) // length
+                        tlvData.addAll(pubkeyBytes.toList())
+                    }
+                }
+            }
+            
+            // Type 3: Kind (optional, 4 bytes big-endian)
+            kind?.let { k ->
+                tlvData.add(3) // type
+                tlvData.add(4) // length
+                // Convert to big-endian 32-bit integer
+                tlvData.add(((k shr 24) and 0xFF).toByte())
+                tlvData.add(((k shr 16) and 0xFF).toByte())
+                tlvData.add(((k shr 8) and 0xFF).toByte())
+                tlvData.add((k and 0xFF).toByte())
+            }
+            
+            // Encode with nevent HRP
+            bech32Encode("nevent", tlvData.toByteArray())
         } catch (e: Exception) {
-            Log.w(TAG, "Error encoding hex to note: $hex", e)
+            Log.w(TAG, "Error encoding hex to nevent: $eventId", e)
             null
         }
     }
     
-
-    
     /**
-     * Decode note to hex event ID
+     * Decode nevent to extract event ID and metadata
      */
-    fun noteToHex(note: String): String? {
+    fun neventToHex(nevent: String): String? {
         return try {
-            if (!isValidNote(note)) return null
+            if (!isValidNevent(nevent)) return null
             
-            // Use proper bech32 decoding
-            val decoded = decodeBech32(note) ?: return null
-            if (decoded.first != "note" || decoded.second.size != 32) return null
+            val decoded = decodeBech32(nevent) ?: return null
+            if (decoded.first != "nevent") return null
             
-            decoded.second.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+            val tlvData = decoded.second
+            var index = 0
+            var eventId: String? = null
+            
+            while (index < tlvData.size - 1) {
+                val type = tlvData[index].toInt() and 0xFF
+                val length = tlvData[index + 1].toInt() and 0xFF
+                
+                if (index + 2 + length > tlvData.size) break
+                
+                when (type) {
+                    0 -> { // Event ID
+                        if (length == 32) {
+                            val eventIdBytes = tlvData.sliceArray(index + 2 until index + 2 + length)
+                            eventId = eventIdBytes.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+                        }
+                    }
+                    // We only need the event ID for basic functionality
+                    // Other TLV types (relay, author, kind) can be parsed if needed
+                }
+                
+                index += 2 + length
+            }
+            
+            eventId
         } catch (e: Exception) {
-            Log.w(TAG, "Error decoding note: $note", e)
+            Log.w(TAG, "Error decoding nevent: $nevent", e)
             null
         }
     }
     
     /**
-     * Check if a string is a valid note (Nostr event ID in bech32 format)
+     * Extract relay URLs from nevent TLV data
      */
-    fun isValidNote(note: String): Boolean {
-        return note.startsWith("note1") && note.length >= 50 && note.length <= 100
+    fun extractRelaysFromNevent(nevent: String): List<String> {
+        return try {
+            if (!isValidNevent(nevent)) return emptyList()
+            
+            val decoded = decodeBech32(nevent) ?: return emptyList()
+            if (decoded.first != "nevent") return emptyList()
+            
+            val tlvData = decoded.second
+            val relays = mutableListOf<String>()
+            var index = 0
+            
+            while (index < tlvData.size - 1) {
+                val type = tlvData[index].toInt() and 0xFF
+                val length = tlvData[index + 1].toInt() and 0xFF
+                
+                if (index + 2 + length > tlvData.size) break
+                
+                when (type) {
+                    1 -> { // Relay URL
+                        val relayBytes = tlvData.sliceArray(index + 2 until index + 2 + length)
+                        val relayUrl = String(relayBytes, Charsets.UTF_8)
+                        relays.add(relayUrl)
+                    }
+                }
+                
+                index += 2 + length
+            }
+            
+            relays
+        } catch (e: Exception) {
+            Log.w(TAG, "Error extracting relays from nevent: $nevent", e)
+            emptyList()
+        }
     }
     
 
