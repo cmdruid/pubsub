@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.4]
+
+- Added settings page with some configurations.
+- Added import / export of configs.
+- Changed `note` link to `nevent` link.
+- Separated hash tags (#t) from custom tags.
+- Minor changes to the subscription config UI
+- Added test coverage for `nevent` handling and import / export.
+- Various other changes and fixes.
+
 ## [0.9.3]
 
 - Fixed issues with relay subscriptions going stale. The app should now detect if the subscription is stale, and resubscribe.
