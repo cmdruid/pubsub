@@ -11,7 +11,7 @@
     <string name="direct_mode">Direct URI Mode</string>
     <string name="notification_mode">Notification Mode</string>
     <string name="service_running">PubSub is running</string>
-    <string name="service_description">Monitoring Nostr events</string>
+    <string name="service_description">Monitoring events</string>
     <string name="notification_channel_name">PubSub Notifications</string>
     <string name="notification_channel_description">Notifications for Nostr events</string>
     <string name="event_notification_channel_name">Event Notifications</string>
