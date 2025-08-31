@@ -39,7 +39,7 @@ for arg in "$@"; do
             echo "Usage: ./script/release.sh [version] [options]"
             echo ""
             echo "Arguments:"
-            echo "  version                 Version number (e.g., 1.0.0). If not provided, reads from build.gradle.kts"
+            echo "  version                 Version number (e.g., 1.0.0 or v1.0.0). If not provided, reads from build.gradle.kts"
             echo ""
             echo "Options:"
             echo "  --skip-build            Skip the build process, only create/push git tag"
@@ -50,9 +50,10 @@ for arg in "$@"; do
             echo ""
             echo "Examples:"
             echo "  ./script/release.sh 1.2.0                    # Release build with version 1.2.0"
+            echo "  ./script/release.sh v1.2.0                   # Same as above (v prefix is handled automatically)"
             echo "  ./script/release.sh --skip-build             # Only create git tag"
             echo "  ./script/release.sh 1.3.0 --skip-tag        # Build only, no git tag"
-            echo "  ./script/release.sh 0.9.1 --force-tag       # Force recreate existing tag"
+            echo "  ./script/release.sh v0.9.1 --force-tag      # Force recreate existing tag"
             echo "  ./script/release.sh 0.9.1 --github-only     # Only create tag, let GitHub build"
             exit 0
             ;;
@@ -93,6 +94,25 @@ fi
 # Function to get version from build.gradle.kts
 get_gradle_version() {
     grep -o 'versionName = "[^"]*"' app/build.gradle.kts | sed 's/versionName = "\(.*\)"/\1/'
+}
+
+# Function to normalize version (remove 'v' prefix if present)
+normalize_version() {
+    local version=$1
+    echo "${version#v}"  # Remove 'v' prefix if present
+}
+
+# Function to get clean version for gradle (without 'v' prefix)
+get_clean_version() {
+    local version=$1
+    normalize_version "$version"
+}
+
+# Function to get tag version (with 'v' prefix)
+get_tag_version() {
+    local version=$1
+    local clean_version=$(normalize_version "$version")
+    echo "v$clean_version"
 }
 
 # Function to check if tag exists remotely
@@ -180,8 +200,13 @@ if [ -z "$VERSION" ]; then
     echo "📦 Using version from build.gradle.kts: $VERSION"
 else
     echo "📦 Using provided version: $VERSION"
+    # Normalize the provided version for consistent handling
+    CLEAN_VERSION=$(get_clean_version "$VERSION")
     if [ "$SKIP_BUILD" = false ]; then
-        update_gradle_version "$VERSION"
+        update_gradle_version "$CLEAN_VERSION"
+        VERSION="$CLEAN_VERSION"  # Use clean version for consistency
+    else
+        VERSION="$CLEAN_VERSION"  # Always work with clean version internally
     fi
 fi
 
@@ -205,7 +230,7 @@ fi
 
 # Git tag phase
 if [ "$SKIP_TAG" = false ]; then
-    TAG="v$VERSION"
+    TAG=$(get_tag_version "$VERSION")
     
     # Check if tag already exists remotely
     echo "🔍 Checking if tag $TAG already exists on remote..."
