@@ -409,10 +409,10 @@ class BatteryMetricsCollector(private val context: Context) {
             appendLine()
             
             appendLine("OPTIMIZATION EFFECTIVENESS: ${report.optimizationEffectiveness}")
-            appendLine("- Ping Frequency Reduction: ${String.format("%.1f", report.pingFrequencyReduction)}%")
-            appendLine("- Connection Stability: ${String.format("%.1f", report.connectionStability)}%")
-            appendLine("- Battery Drain Improvement: ${String.format("%.1f", report.batteryDrainImprovement)}%")
-            appendLine("- Network Activity Reduction: ${String.format("%.1f", report.networkActivityReduction)}%")
+            appendLine("- Ping Frequency Reduction: ${String.format(Locale.ROOT, "%.1f", report.pingFrequencyReduction)}%")
+            appendLine("- Connection Stability: ${String.format(Locale.ROOT, "%.1f", report.connectionStability)}%")
+            appendLine("- Battery Drain Improvement: ${String.format(Locale.ROOT, "%.1f", report.batteryDrainImprovement)}%")
+            appendLine("- Network Activity Reduction: ${String.format(Locale.ROOT, "%.1f", report.networkActivityReduction)}%")
             appendLine()
             
             appendLine("DETAILED METRICS:")
@@ -431,8 +431,8 @@ class BatteryMetricsCollector(private val context: Context) {
             if (metricsHistory.size > 1) {
                 val previousReport = metricsHistory[metricsHistory.size - 2]
                 appendLine("Improvement since last report:")
-                appendLine("  Ping reduction: ${String.format("%.1f", report.pingFrequencyReduction - previousReport.pingFrequencyReduction)}%")
-                appendLine("  Battery improvement: ${String.format("%.1f", report.batteryDrainImprovement - previousReport.batteryDrainImprovement)}%")
+                appendLine("  Ping reduction: ${String.format(Locale.ROOT, "%.1f", report.pingFrequencyReduction - previousReport.pingFrequencyReduction)}%")
+                appendLine("  Battery improvement: ${String.format(Locale.ROOT, "%.1f", report.batteryDrainImprovement - previousReport.batteryDrainImprovement)}%")
             }
         }
     }

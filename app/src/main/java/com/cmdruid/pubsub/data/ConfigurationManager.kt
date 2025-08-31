@@ -171,6 +171,41 @@ class ConfigurationManager(context: Context) {
     }
     
     /**
+     * Get formatted debug logs for export
+     */
+    fun getFormattedDebugLogsForExport(): String {
+        val logs = debugLogs
+        if (logs.isEmpty()) {
+            return "No debug logs available."
+        }
+        
+        val sb = StringBuilder()
+        sb.appendLine("PubSub Debug Logs Export")
+        sb.appendLine("Generated: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
+        sb.appendLine("Total logs: ${logs.size}")
+        sb.appendLine("=".repeat(50))
+        sb.appendLine()
+        
+        logs.reversed().forEach { log ->
+            // Parse timestamp and message
+            val parts = log.split(": ", limit = 2)
+            if (parts.size == 2) {
+                val timestamp = try {
+                    val millis = parts[0].toLong()
+                    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.getDefault()).format(java.util.Date(millis))
+                } catch (e: Exception) {
+                    parts[0]
+                }
+                sb.appendLine("[$timestamp] ${parts[1]}")
+            } else {
+                sb.appendLine(log)
+            }
+        }
+        
+        return sb.toString()
+    }
+    
+    /**
      * Clear all data
      */
     fun clear() {

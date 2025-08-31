@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.5]
+
+- Added export button to debug console.
+- Updated icons for debug console.
+- Minor changes to some text labels in the app.
+- Fixed "Health Monitor Error" message spamming the logs.
+
 ## [0.9.4]
 
 - Added settings page with some configurations.

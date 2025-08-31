@@ -113,10 +113,16 @@ class EventNotificationManager(
     /**
      * Create foreground service notification
      */
-    fun createForegroundNotification(pendingIntent: PendingIntent): android.app.Notification {
+    fun createForegroundNotification(pendingIntent: PendingIntent, subscriptionCount: Int = 0): android.app.Notification {
+        val contentText = if (subscriptionCount > 0) {
+            "Monitoring $subscriptionCount subscription${if (subscriptionCount != 1) "s" else ""}"
+        } else {
+            context.getString(R.string.service_description)
+        }
+        
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.service_running))
-            .setContentText(context.getString(R.string.service_description))
+            .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFFEA8F70.toInt()) // Coral background color
             .setContentIntent(pendingIntent)

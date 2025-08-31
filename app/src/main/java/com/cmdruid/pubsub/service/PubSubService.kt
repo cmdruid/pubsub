@@ -13,12 +13,14 @@ import android.util.Log
 import com.cmdruid.pubsub.data.ConfigurationManager
 import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.ui.MainActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.WebSocket
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 class PubSubService : Service() {
@@ -114,7 +116,7 @@ class PubSubService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(appStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            registerReceiver(appStateReceiver, filter)
+            registerReceiver(appStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         }
         
         sendDebugLog("⚡ Service created")
@@ -132,6 +134,7 @@ class PubSubService : Service() {
             "SYNC_CONFIGURATIONS" -> {
                 sendDebugLog("🔄 Configuration sync requested")
                 webSocketConnectionManager.syncConfigurations()
+                updateForegroundNotification()
                 return START_STICKY
             }
             "TEST_CONNECTION_HEALTH" -> {
@@ -322,7 +325,18 @@ class PubSubService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        return eventNotificationManager.createForegroundNotification(pendingIntent)
+        val subscriptionCount = configurationManager.getEnabledConfigurations().size
+        return eventNotificationManager.createForegroundNotification(pendingIntent, subscriptionCount)
+    }
+    
+    /**
+     * Update the foreground notification with current subscription count
+     */
+    private fun updateForegroundNotification() {
+        val notification = createForegroundNotification()
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        notificationManager.notify(NOTIFICATION_ID, notification)
+        sendDebugLog("🔔 Updated foreground notification with current subscription count")
     }
     
     /**
@@ -421,6 +435,10 @@ class PubSubService : Service() {
                         sendDebugLog("🩺 Health check complete - all connections healthy")
                     }
                     
+                } catch (e: CancellationException) {
+                    // Expected when the coroutine is cancelled - don't log as an error
+                    sendDebugLog("🩺 Health monitor stopped (service shutting down)")
+                    throw e // Re-throw to properly cancel the coroutine
                 } catch (e: Exception) {
                     sendDebugLog("🩺 Health monitor error: ${e.message}")
                 }
@@ -436,10 +454,10 @@ class PubSubService : Service() {
             val report = batteryMetricsCollector.generateOptimizationReport()
             
             sendDebugLog("🔋 Optimization Effectiveness: ${report.optimizationEffectiveness}")
-            sendDebugLog("   Ping frequency reduction: ${String.format("%.1f", report.pingFrequencyReduction)}%")
-            sendDebugLog("   Connection stability: ${String.format("%.1f", report.connectionStability)}%")
-            sendDebugLog("   Battery improvement: ${String.format("%.1f", report.batteryDrainImprovement)}%")
-            sendDebugLog("   Network activity reduction: ${String.format("%.1f", report.networkActivityReduction)}%")
+            sendDebugLog("   Ping frequency reduction: ${String.format(Locale.ROOT, "%.1f", report.pingFrequencyReduction)}%")
+            sendDebugLog("   Connection stability: ${String.format(Locale.ROOT, "%.1f", report.connectionStability)}%")
+            sendDebugLog("   Battery improvement: ${String.format(Locale.ROOT, "%.1f", report.batteryDrainImprovement)}%")
+            sendDebugLog("   Network activity reduction: ${String.format(Locale.ROOT, "%.1f", report.networkActivityReduction)}%")
             
             // Log detailed metrics for analysis
             batteryOptimizationLogger.logOptimization(
@@ -472,6 +490,7 @@ class PubSubService : Service() {
         // Send broadcast to MainActivity for real-time display
         val intent = Intent(MainActivity.ACTION_DEBUG_LOG).apply {
             putExtra(MainActivity.EXTRA_LOG_MESSAGE, message)
+            setPackage(packageName)
         }
         sendBroadcast(intent)
     }

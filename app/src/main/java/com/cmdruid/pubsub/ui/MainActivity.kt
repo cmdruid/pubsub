@@ -17,6 +17,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
@@ -58,6 +61,14 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     ) { isGranted ->
         if (!isGranted) {
             Toast.makeText(this, "Notification permission is required for the app to work properly", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private val exportLogsLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        uri?.let { 
+            exportDebugLogsToFile(it)
         }
     }
     
@@ -192,6 +203,10 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 startActivity(intent)
             }
             
+            exportLogsButton.setOnClickListener {
+                exportDebugLogs()
+            }
+            
             clearLogsButton.setOnClickListener {
                 configurationManager.clearDebugLogs()
                 refreshDebugLogs()
@@ -246,9 +261,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         val enabledConfigs = configurationManager.getEnabledConfigurations().size
         
         binding.statusText.text = if (isRunning) {
-            "Service Status: Running ($enabledConfigs subscription${if (enabledConfigs != 1) "s" else ""})"
+            "Status: Running ($enabledConfigs subscription${if (enabledConfigs != 1) "s" else ""})"
         } else {
-            "Service Status: Stopped"
+            "Status: Stopped"
         }
         
         binding.toggleServiceButton.text = if (isRunning) {
@@ -434,6 +449,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             val intent = Intent(ACTION_APP_STATE_CHANGE).apply {
                 putExtra(EXTRA_APP_STATE, appState)
                 putExtra(EXTRA_STATE_DURATION, duration)
+                setPackage(packageName)
             }
             sendBroadcast(intent)
             
@@ -574,6 +590,43 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         // Find the debug console card view by ID
         val debugConsoleCard = findViewById<View>(R.id.debugConsoleCard)
         debugConsoleCard?.visibility = if (shouldShow) View.VISIBLE else View.GONE
+    }
+    
+    /**
+     * Export debug logs to a text file
+     */
+    private fun exportDebugLogs() {
+        val logs = configurationManager.debugLogs
+        if (logs.isEmpty()) {
+            Toast.makeText(this, "No debug logs to export", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Generate filename with current date/time
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val filename = "pubsub_debug_logs_$timestamp.txt"
+        
+        // Launch file picker
+        exportLogsLauncher.launch(filename)
+    }
+    
+    /**
+     * Write debug logs to the selected file
+     */
+    private fun exportDebugLogsToFile(uri: android.net.Uri) {
+        try {
+            contentResolver.openOutputStream(uri)?.use { outputStream ->
+                val content = configurationManager.getFormattedDebugLogsForExport()
+                outputStream.write(content.toByteArray())
+                outputStream.flush()
+            }
+            
+            Toast.makeText(this, "Debug logs exported successfully", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            Toast.makeText(this, "Failed to export debug logs: ${e.message}", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error exporting debug logs: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
     
     // SettingsChangeListener implementation

@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.cmdruid.pubsub"
-        minSdk = 26
+        minSdk = 27
         targetSdk = 34
         versionCode = 1
         versionName = "0.9.4"

@@ -215,6 +215,7 @@ class BatteryOptimizationLogger(private val context: Context) {
         try {
             val intent = Intent(MainActivity.ACTION_DEBUG_LOG).apply {
                 putExtra(MainActivity.EXTRA_LOG_MESSAGE, "🔋 $message")
+                setPackage(context.packageName)
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {

@@ -364,7 +364,7 @@ class NetworkOptimizationLogger(private val context: Context) {
             appendLine("- Reconnection Attempts: ${stats["reconnection_attempts"]}")
             appendLine("- Reconnection Successes: ${stats["reconnection_successes"]}")
             appendLine("- Reconnection Skips: ${stats["reconnection_skips"]}")
-            appendLine("- Success Rate: ${String.format("%.1f", stats["reconnection_success_rate"])}%")
+            appendLine("- Success Rate: ${String.format(Locale.ROOT, "%.1f", stats["reconnection_success_rate"])}%")
             appendLine()
             
             // Wake Lock Statistics
@@ -467,7 +467,7 @@ class NetworkOptimizationLogger(private val context: Context) {
         val reconnectionAttempts = stats["reconnection_attempts"] as Long
         
         if (successRate < 80.0) {
-            recommendations.add("Reconnection success rate is low (${String.format("%.1f", successRate)}%). Consider adjusting network quality thresholds.")
+            recommendations.add("Reconnection success rate is low (${String.format(Locale.ROOT, "%.1f", successRate)}%). Consider adjusting network quality thresholds.")
         }
         
         if (avgWakeLockDuration > 20000) {
@@ -477,7 +477,7 @@ class NetworkOptimizationLogger(private val context: Context) {
         if (wakeLockAcquisitions > 0 && reconnectionAttempts > 0) {
             val wakeLockPerReconnect = wakeLockAcquisitions.toDouble() / reconnectionAttempts
             if (wakeLockPerReconnect > 1.5) {
-                recommendations.add("High wake lock usage per reconnection (${String.format("%.1f", wakeLockPerReconnect)}). Optimize wake lock acquisition logic.")
+                recommendations.add("High wake lock usage per reconnection (${String.format(Locale.ROOT, "%.1f", wakeLockPerReconnect)}). Optimize wake lock acquisition logic.")
             }
         }
         
