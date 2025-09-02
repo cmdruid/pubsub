@@ -60,7 +60,7 @@ class MessageProcessor(
             if (messageQueue.size >= MAX_QUEUE_SIZE) {
                 // Drop oldest message to prevent memory issues
                 messageQueue.removeAt(0)
-                unifiedLogger.warn(LogDomain.EVENT, "Message queue full, dropping oldest message")
+                unifiedLogger.debug(LogDomain.EVENT, "Message queue full, dropping oldest message")
             }
             
             messageQueue.add(QueuedMessage(messageText, subscriptionId, relayUrl, System.currentTimeMillis()))
