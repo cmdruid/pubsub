@@ -4,6 +4,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.cmdruid.pubsub.databinding.ItemCustomTagBinding
 import com.cmdruid.pubsub.data.HashtagEntry
@@ -34,8 +35,10 @@ class CustomTagAdapter : RecyclerView.Adapter<CustomTagAdapter.CustomTagViewHold
         return entries.filter { it.isValid() }
     }
     
-    fun addEntry(entry: HashtagEntry = HashtagEntry("", "")) {
-        entries.add(entry)
+    fun addEntry(entry: HashtagEntry = HashtagEntry("a", "")) {
+        // Default to first available letter if no tag specified
+        val defaultEntry = if (entry.tag.isEmpty()) entry.copy(tag = "a") else entry
+        entries.add(defaultEntry)
         notifyItemInserted(entries.size - 1)
     }
     
@@ -67,41 +70,62 @@ class CustomTagAdapter : RecyclerView.Adapter<CustomTagAdapter.CustomTagViewHold
     
     override fun getItemCount(): Int = entries.size
     
+    companion object {
+        // Available letters excluding reserved tags (e, p, t)
+        private val AVAILABLE_LETTERS = buildList {
+            // Add lowercase letters except e, p, t
+            ('a'..'z').forEach { letter ->
+                if (letter !in listOf('e', 'p', 't')) {
+                    add(letter.toString())
+                }
+            }
+            // Add uppercase letters except E, P, T
+            ('A'..'Z').forEach { letter ->
+                if (letter !in listOf('E', 'P', 'T')) {
+                    add(letter.toString())
+                }
+            }
+        }.sorted() // Sort alphabetically for better UX
+    }
+    
     inner class CustomTagViewHolder(
         private val binding: ItemCustomTagBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         
-        private var tagTextWatcher: TextWatcher? = null
         private var valueTextWatcher: TextWatcher? = null
         
         fun bind(entry: HashtagEntry, position: Int) {
             binding.apply {
-                // Remove previous text watchers to avoid conflicts
-                tagTextWatcher?.let { tagEditText.removeTextChangedListener(it) }
+                // Remove previous text watcher to avoid conflicts
                 valueTextWatcher?.let { valueEditText.removeTextChangedListener(it) }
                 
+                // Setup tag selector dropdown with custom styling
+                val tagAdapter = ArrayAdapter(itemView.context, com.cmdruid.pubsub.R.layout.dropdown_tag_item, AVAILABLE_LETTERS)
+                tagSelector.setAdapter(tagAdapter)
+                tagSelector.dropDownHeight = 400 // Limit dropdown height to prevent overlap
+                
                 // Set current values
-                tagEditText.setText(entry.tag)
+                android.util.Log.d("CustomTagAdapter", "Binding entry at position $position: tag=${entry.tag}, value=${entry.value}")
+                val tagToSet = if (entry.tag.isNotEmpty()) entry.tag else "a"
+                tagSelector.setText(tagToSet, false)
                 valueEditText.setText(entry.value)
                 
                 // Validate and show errors
                 updateValidation(entry)
                 
-                // Add text watchers
-                tagTextWatcher = object : TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                    override fun afterTextChanged(s: Editable?) {
-                        val currentPosition = bindingAdapterPosition
-                        if (currentPosition != RecyclerView.NO_POSITION && currentPosition < entries.size) {
-                            val tag = s.toString()
-                            val currentEntry = entries[currentPosition]
-                            entries[currentPosition] = currentEntry.copy(tag = tag)
-                            updateValidation(entries[currentPosition])
-                        }
+                // Add tag selector listener
+                tagSelector.setOnItemClickListener { _, _, tagPosition, _ ->
+                    val selectedTag = AVAILABLE_LETTERS[tagPosition]
+                    val currentPosition = bindingAdapterPosition
+                    if (currentPosition != RecyclerView.NO_POSITION && currentPosition < entries.size) {
+                        val currentEntry = entries[currentPosition]
+                        entries[currentPosition] = currentEntry.copy(tag = selectedTag)
+                        updateValidation(entries[currentPosition])
+                        android.util.Log.d("CustomTagAdapter", "Tag changed to: $selectedTag")
                     }
                 }
                 
+                // Add value text watcher
                 valueTextWatcher = object : TextWatcher {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -116,7 +140,6 @@ class CustomTagAdapter : RecyclerView.Adapter<CustomTagAdapter.CustomTagViewHold
                     }
                 }
                 
-                tagEditText.addTextChangedListener(tagTextWatcher)
                 valueEditText.addTextChangedListener(valueTextWatcher)
                 
                 deleteButton.setOnClickListener {
@@ -130,27 +153,10 @@ class CustomTagAdapter : RecyclerView.Adapter<CustomTagAdapter.CustomTagViewHold
         
         private fun updateValidation(entry: HashtagEntry) {
             binding.apply {
-                // Validate tag
-                when {
-                    entry.tag.isEmpty() -> {
-                        tagInputLayout.error = null
-                    }
-                    entry.tag.length != 1 -> {
-                        tagInputLayout.error = "Tag must be a single letter"
-                    }
-                    !entry.tag.matches(Regex("[a-zA-Z]")) -> {
-                        tagInputLayout.error = "Tag must be a letter (a-z, A-Z)"
-                    }
-                    entry.tag.lowercase() in listOf("e", "p", "t") -> {
-                        tagInputLayout.error = "Tags 'e', 'p', and 't' are reserved for dedicated sections"
-                    }
-                    else -> {
-                        tagInputLayout.error = null
-                    }
-                }
+                // Tag validation is no longer needed since TagSelectorView only allows valid tags
                 
-                // Validate value
-                if (entry.tag.isNotEmpty() && entry.value.isBlank()) {
+                // Validate value - require value when tag is selected
+                if (entry.value.isBlank()) {
                     valueInputLayout.error = "Value is required"
                 } else {
                     valueInputLayout.error = null

@@ -190,6 +190,14 @@ object UriBuilder {
                 }
             }
             
+            // Add local filter parameters (only include non-default values)
+            if (!configuration.excludeMentionsToSelf) {
+                uriBuilder.appendQueryParameter("excludeMentionsToSelf", "false")
+            }
+            if (configuration.excludeRepliesToEvents) {
+                uriBuilder.appendQueryParameter("excludeRepliesToEvents", "true")
+            }
+            
             uriBuilder.build().toString()
         } catch (e: Exception) {
             null
@@ -204,7 +212,9 @@ object UriBuilder {
         relayUrls: List<String>,
         filter: NostrFilter,
         targetUri: String,
-        keywords: List<String> = emptyList()
+        keywords: List<String> = emptyList(),
+        excludeMentionsToSelf: Boolean = true,
+        excludeRepliesToEvents: Boolean = false
     ): String? {
         return try {
             val filterJson = gson.toJson(filter)
@@ -228,6 +238,14 @@ object UriBuilder {
             // Add keywords
             keywords.forEach { keyword ->
                 uriBuilder.appendQueryParameter("keyword", keyword)
+            }
+            
+            // Add local filter parameters (only include non-default values)
+            if (!excludeMentionsToSelf) {
+                uriBuilder.appendQueryParameter("excludeMentionsToSelf", "false")
+            }
+            if (excludeRepliesToEvents) {
+                uriBuilder.appendQueryParameter("excludeRepliesToEvents", "true")
             }
             
             uriBuilder.build().toString()

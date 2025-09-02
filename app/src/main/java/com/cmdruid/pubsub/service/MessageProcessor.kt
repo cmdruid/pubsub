@@ -147,6 +147,17 @@ class MessageProcessor(
      * Process a validated Nostr event
      */
     private fun handleValidatedEvent(event: NostrEvent, configuration: Configuration, subscriptionId: String) {
+        // Apply local filters first (cheapest operations)
+        if (shouldExcludeMentionsToSelf(event, configuration)) {
+            unifiedLogger.trace(LogDomain.EVENT, "Event ${event.id.take(8)}... filtered: mentions to self")
+            return
+        }
+        
+        if (shouldExcludeRepliesToEvents(event, configuration)) {
+            unifiedLogger.trace(LogDomain.EVENT, "Event ${event.id.take(8)}... filtered: reply to events")
+            return
+        }
+        
         // Apply keyword filtering if configured
         val keywordFilter = configuration.keywordFilter
         if (keywordFilter != null && !keywordFilter.isEmpty()) {
@@ -195,5 +206,40 @@ class MessageProcessor(
      */
     private fun showEventNotification(event: NostrEvent, uri: Uri, configuration: Configuration, subscriptionId: String) {
         eventNotificationManager.showEventNotification(event, uri, configuration, subscriptionId)
+    }
+    
+    /**
+     * Check if event should be excluded due to mentions to self
+     * Filter out events where the author is also mentioned in "p" tags
+     */
+    private fun shouldExcludeMentionsToSelf(event: NostrEvent, configuration: Configuration): Boolean {
+        if (!configuration.excludeMentionsToSelf) return false
+        
+        // Cache author pubkey lookup
+        val authorPubkey = event.pubkey
+        
+        // Efficient tag scanning using any() for early exit
+        return event.tags.any { tag ->
+            tag.size > 1 && tag[0] == "p" && tag[1] == authorPubkey
+        }
+    }
+    
+    /**
+     * Check if event should be excluded as reply to events
+     * Filter out events from filtered authors that contain "e" tags (event references/replies)
+     */
+    private fun shouldExcludeRepliesToEvents(event: NostrEvent, configuration: Configuration): Boolean {
+        if (!configuration.excludeRepliesToEvents) return false
+        
+        val authorPubkey = event.pubkey
+        val filteredAuthors = configuration.filter.authors ?: return false
+        
+        // Early exit if author not in filter
+        if (authorPubkey !in filteredAuthors) return false
+        
+        // Check for event references (replies) - optimized scanning
+        return event.tags.any { tag ->
+            tag.size > 1 && tag[0] == "e"
+        }
     }
 }

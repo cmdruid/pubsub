@@ -26,6 +26,11 @@ object DeepLinkHandler {
         val errorMessage: String? = null
     )
     
+    data class LocalFilterConfig(
+        val excludeMentionsToSelf: Boolean,
+        val excludeRepliesToEvents: Boolean
+    )
+    
     /**
      * Parse a deep link URI and extract configuration data
      */
@@ -134,6 +139,9 @@ object DeepLinkHandler {
             // Parse keywords from URI parameters
             val keywordFilter = parseKeywords(uri)
             
+            // Parse local filters from URI parameters
+            val localFilters = parseLocalFilters(uri)
+            
             // Create the configuration
             val configuration = Configuration(
                 name = label,
@@ -141,7 +149,9 @@ object DeepLinkHandler {
                 filter = filter,
                 targetUri = targetUri,
                 isEnabled = true,
-                keywordFilter = keywordFilter
+                keywordFilter = keywordFilter,
+                excludeMentionsToSelf = localFilters.excludeMentionsToSelf,
+                excludeRepliesToEvents = localFilters.excludeRepliesToEvents
             )
             
             android.util.Log.d("DeepLinkHandler", "Successfully created configuration: ${configuration.name}")
@@ -189,6 +199,38 @@ object DeepLinkHandler {
         } catch (e: Exception) {
             android.util.Log.w("DeepLinkHandler", "Error parsing keywords: ${e.message}")
             return null
+        }
+    }
+    
+    /**
+     * Parse local filters from URI parameters
+     */
+    private fun parseLocalFilters(uri: Uri): LocalFilterConfig {
+        try {
+            // Parse boolean parameters with defaults
+            val excludeMentionsToSelf = when (uri.getQueryParameter("excludeMentionsToSelf")?.lowercase()?.trim()) {
+                "false" -> false
+                else -> true // Default to true
+            }
+            
+            val excludeRepliesToEvents = when (uri.getQueryParameter("excludeRepliesToEvents")?.lowercase()?.trim()) {
+                "true" -> true
+                else -> false // Default to false
+            }
+            
+            android.util.Log.d("DeepLinkHandler", "Local filters: excludeMentionsToSelf=$excludeMentionsToSelf, excludeRepliesToEvents=$excludeRepliesToEvents")
+            
+            return LocalFilterConfig(
+                excludeMentionsToSelf = excludeMentionsToSelf,
+                excludeRepliesToEvents = excludeRepliesToEvents
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("DeepLinkHandler", "Error parsing local filters: ${e.message}")
+            // Return defaults on error
+            return LocalFilterConfig(
+                excludeMentionsToSelf = true,
+                excludeRepliesToEvents = false
+            )
         }
     }
     

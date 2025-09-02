@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Active state: Normal card text color -->
+    <item android:state_activated="true" android:color="?attr/colorOnSurface" />
+    
+    <!-- Inactive state: Brighter gray for better readability -->
+    <item android:state_activated="false" android:color="#B0B0B0" />
+    
+    <!-- Default state: Normal card text (fallback) -->
+    <item android:color="?attr/colorOnSurface" />
+</selector>

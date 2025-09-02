@@ -40,7 +40,9 @@ data class ExportableSubscription(
     val target: String,
     val relays: List<String>,
     val filters: Map<String, Any>,
-    val keywords: List<String>?
+    val keywords: List<String>?,
+    val excludeMentionsToSelf: Boolean = true,
+    val excludeRepliesToEvents: Boolean = false
 ) {
     companion object {
         fun fromConfiguration(config: Configuration): ExportableSubscription {
@@ -76,7 +78,9 @@ data class ExportableSubscription(
                 target = config.targetUri,
                 relays = config.relayUrls,
                 filters = filtersMap,
-                keywords = config.keywordFilter?.keywords?.takeIf { it.isNotEmpty() }
+                keywords = config.keywordFilter?.keywords?.takeIf { it.isNotEmpty() },
+                excludeMentionsToSelf = config.excludeMentionsToSelf,
+                excludeRepliesToEvents = config.excludeRepliesToEvents
             )
         }
     }
@@ -118,7 +122,9 @@ data class ExportableSubscription(
             targetUri = target,
             isDirectMode = false, // Default to false for imports
             isEnabled = enabled,
-            keywordFilter = keywordFilter
+            keywordFilter = keywordFilter,
+            excludeMentionsToSelf = excludeMentionsToSelf,
+            excludeRepliesToEvents = excludeRepliesToEvents
         )
     }
     

@@ -200,7 +200,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Subscribe to events from specific authors (hex pubkeys or npubs)"
+                        android:text="Subscribe to events from specific authors.\n(enter npub or hex)"
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -246,7 +246,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Event types: 1=text notes, 0=metadata, 7=reactions, etc."
+                        android:text="Subscribe to certain event kinds.\n(1=notes, 0=profiles, 7=reactions, etc)"
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -276,7 +276,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Mentioned Public Keys"
+                            android:text="Mentioned Pubkeys"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
@@ -292,7 +292,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Events that mention these public keys (hex pubkeys or npubs)"
+                        android:text="Subscribe to events that mention these pubkeys.\n(enter npub or hex)"
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -322,7 +322,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Referenced Event IDs"
+                            android:text="Referenced Events"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
@@ -338,7 +338,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Events that reference these event IDs"
+                        android:text="Subscribe to events that reference these ids."
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -384,7 +384,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Events with these hashtags (single words only). Uses the 't' tag internally."
+                        android:text="Subscribe to events that include these hashtags.\n"
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -430,7 +430,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Events with custom tag filters (single letter tags a-z, A-Z with values, except reserved tags). You can add multiple entries with the same tag."
+                        android:text="Subscribe to events with custom search tags."
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -466,6 +466,128 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/local_filter"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Local Filter Checkboxes -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Configure local filters for incoming events."
+                        android:textSize="12sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="16dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="top"
+                        android:layout_marginBottom="16dp">
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/excludeMentionsToSelfCheckbox"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:layout_marginTop="8dp"
+                            android:checked="true"
+                            android:scaleX="0.8"
+                            android:scaleY="0.8"
+                            app:trackTint="@color/switch_track_tint"
+                            app:thumbTint="@color/switch_thumb_tint" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/excludeMentionsToSelfTitle"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/exclude_mentions_to_self"
+                                android:textSize="16sp"
+                                android:textColor="@color/local_filter_title_text"
+                                android:layout_marginBottom="4dp"
+                                android:includeFontPadding="true"
+                                android:paddingTop="2dp"
+                                android:paddingBottom="2dp" />
+
+                            <TextView
+                                android:id="@+id/excludeMentionsToSelfDescription"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/exclude_mentions_to_self_description"
+                                android:textSize="11sp"
+                                android:textColor="@color/local_filter_description_text" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="top"
+                        android:layout_marginBottom="16dp">
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/excludeRepliesToEventsCheckbox"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:layout_marginTop="8dp"
+                            android:checked="false"
+                            android:scaleX="0.8"
+                            android:scaleY="0.8"
+                            app:trackTint="@color/switch_track_tint"
+                            app:thumbTint="@color/switch_thumb_tint" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/excludeRepliesToEventsTitle"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/exclude_replies_to_events"
+                                android:textSize="16sp"
+                                android:textColor="@color/local_filter_title_text"
+                                android:layout_marginBottom="4dp"
+                                android:includeFontPadding="true"
+                                android:paddingTop="2dp"
+                                android:paddingBottom="2dp" />
+
+                            <TextView
+                                android:id="@+id/excludeRepliesToEventsDescription"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/exclude_replies_to_events_description"
+                                android:textSize="11sp"
+                                android:textColor="@color/local_filter_description_text" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#40FFFFFF"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Content Keywords Subsection -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -477,8 +599,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Event Keywords"
-                            android:textSize="18sp"
+                            android:text="@string/content_keywords"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <com.google.android.material.button.MaterialButton
@@ -493,7 +615,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Filter events based on keywords found in the content. Events must match at least one keyword to pass through. Uses word boundary matching."
+                        android:text="Filter events based on keywords in the content."
                         android:textSize="12sp"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginBottom="8dp" />
@@ -509,7 +631,7 @@
                         android:id="@+id/noKeywordsText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="No keywords added. Events will pass through without content filtering."
+                        android:text="No keywords added."
                         android:textAlignment="center"
                         android:textStyle="italic"
                         android:textColor="?attr/colorOnSurfaceVariant"

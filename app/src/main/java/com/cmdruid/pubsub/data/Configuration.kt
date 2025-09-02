@@ -22,7 +22,9 @@ data class Configuration(
     val targetUri: String,
     val isDirectMode: Boolean = false,
     val isEnabled: Boolean = true,
-    val keywordFilter: KeywordFilter? = null
+    val keywordFilter: KeywordFilter? = null,
+    val excludeMentionsToSelf: Boolean = true,
+    val excludeRepliesToEvents: Boolean = false
 ) {
     /**
      * Check if this configuration is valid and ready to use

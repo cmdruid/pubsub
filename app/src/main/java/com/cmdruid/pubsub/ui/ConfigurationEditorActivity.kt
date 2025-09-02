@@ -77,6 +77,8 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             // Add default relay and target URI from settings for new configurations
             relayUrlAdapter.addRelayUrl(settingsManager.getDefaultRelayServer())
             binding.targetUriEditText.setText(settingsManager.getDefaultEventViewer())
+            // Set initial text states for new configurations
+            updateLocalFilterTextStates()
         }
     }
     
@@ -183,6 +185,15 @@ class ConfigurationEditorActivity : AppCompatActivity() {
             saveButton.setOnClickListener {
                 saveConfiguration()
             }
+            
+            // Add listeners for local filter switches to update text states
+            excludeMentionsToSelfCheckbox.setOnCheckedChangeListener { _, _ ->
+                updateLocalFilterTextStates()
+            }
+            
+            excludeRepliesToEventsCheckbox.setOnCheckedChangeListener { _, _ ->
+                updateLocalFilterTextStates()
+            }
         }
     }
     
@@ -224,7 +235,12 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         keywordsAdapter.setKeywords(configuration.keywordFilter?.keywords ?: emptyList())
         updateKeywordVisibility()
         
-        // No simple fields to load (limit field removed)
+        // Load local filter checkboxes and sync text states
+        binding.excludeMentionsToSelfCheckbox.isChecked = configuration.excludeMentionsToSelf
+        binding.excludeRepliesToEventsCheckbox.isChecked = configuration.excludeRepliesToEvents
+        
+        // Set initial text states based on switch values
+        updateLocalFilterTextStates()
     }
     
     private fun saveConfiguration() {
@@ -267,6 +283,10 @@ class ConfigurationEditorActivity : AppCompatActivity() {
         // Build keyword filter
         val keywordFilter = buildKeywordFilter()
         
+        // Get local filter checkbox values
+        val excludeMentionsToSelf = binding.excludeMentionsToSelfCheckbox.isChecked
+        val excludeRepliesToEvents = binding.excludeRepliesToEventsCheckbox.isChecked
+        
         // Create or update configuration
         val configuration = if (isEditMode) {
             // For edit mode, use the existing configurationId
@@ -276,7 +296,9 @@ class ConfigurationEditorActivity : AppCompatActivity() {
                 relayUrls = relayUrls,
                 filter = filter,
                 targetUri = targetUri,
-                keywordFilter = keywordFilter
+                keywordFilter = keywordFilter,
+                excludeMentionsToSelf = excludeMentionsToSelf,
+                excludeRepliesToEvents = excludeRepliesToEvents
             )
         } else {
             // For new configurations, generate a new ID
@@ -285,7 +307,9 @@ class ConfigurationEditorActivity : AppCompatActivity() {
                 relayUrls = relayUrls,
                 filter = filter,
                 targetUri = targetUri,
-                keywordFilter = keywordFilter
+                keywordFilter = keywordFilter,
+                excludeMentionsToSelf = excludeMentionsToSelf,
+                excludeRepliesToEvents = excludeRepliesToEvents
             )
         }
         
@@ -386,5 +410,20 @@ class ConfigurationEditorActivity : AppCompatActivity() {
                 noKeywordsText.visibility = View.GONE
             }
         }
+    }
+    
+    /**
+     * Update text states for local filter options based on switch values
+     */
+    private fun updateLocalFilterTextStates() {
+        // Update excludeMentionsToSelf text state
+        val mentionsActive = binding.excludeMentionsToSelfCheckbox.isChecked
+        binding.excludeMentionsToSelfTitle.isActivated = mentionsActive
+        binding.excludeMentionsToSelfDescription.isActivated = mentionsActive
+        
+        // Update excludeRepliesToEvents text state
+        val repliesActive = binding.excludeRepliesToEventsCheckbox.isChecked
+        binding.excludeRepliesToEventsTitle.isActivated = repliesActive
+        binding.excludeRepliesToEventsDescription.isActivated = repliesActive
     }
 }

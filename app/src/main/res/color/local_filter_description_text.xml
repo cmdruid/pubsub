@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Active state: Normal description text color -->
+    <item android:state_activated="true" android:color="?attr/colorOnSurfaceVariant" />
+    
+    <!-- Inactive state: Brighter gray for better readability -->
+    <item android:state_activated="false" android:color="#A0A0A0" />
+    
+    <!-- Default state: Normal description color (fallback) -->
+    <item android:color="?attr/colorOnSurfaceVariant" />
+</selector>

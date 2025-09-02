@@ -143,13 +143,47 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Subscriptions"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="16dp" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Subscriptions"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginStart="8dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/loadSubscriptionButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Load"
+                                android:textSize="12sp"
+                                android:layout_marginEnd="4dp"
+                                style="@style/Widget.App.Button.Outlined" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/saveSubscriptionButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Save"
+                                android:textSize="12sp"
+                                style="@style/Widget.App.Button.Outlined" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
 
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/configurationsRecyclerView"
@@ -273,7 +307,7 @@
                             android:text="-- / -- (---%)"
                             android:textSize="14sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
+                            android:textColor="@color/terminal_orange_secondary" />
 
                     </LinearLayout>
 
@@ -298,7 +332,7 @@
                             android:text="-- / -- (---%)"
                             android:textSize="14sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
+                            android:textColor="@color/terminal_orange_secondary" />
 
                     </LinearLayout>
 
@@ -313,7 +347,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Duplicates Prevented"
+                            android:text="Duplicates Detected"
                             android:textSize="14sp" />
 
                         <TextView
@@ -323,7 +357,7 @@
                             android:text="-- / -- (---%)"
                             android:textSize="14sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
+                            android:textColor="@color/terminal_orange_secondary" />
 
                     </LinearLayout>
 
@@ -347,7 +381,7 @@
                             android:text="-- KB"
                             android:textSize="14sp"
                             android:textStyle="bold"
-                            android:textColor="?attr/colorPrimary" />
+                            android:textColor="@color/terminal_orange_secondary" />
 
                     </LinearLayout>
 

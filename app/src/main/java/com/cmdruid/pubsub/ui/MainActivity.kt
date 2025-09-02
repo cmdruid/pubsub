@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import com.cmdruid.pubsub.data.BatteryMode
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.data.ImportExportManager
 import com.cmdruid.pubsub.data.NotificationFrequency
 import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.databinding.ActivityMainBinding
@@ -58,6 +59,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     private lateinit var binding: ActivityMainBinding
     private lateinit var configurationManager: ConfigurationManager
     private lateinit var settingsManager: SettingsManager
+    private lateinit var importExportManager: ImportExportManager
     private lateinit var configurationAdapter: ConfigurationAdapter
     private lateinit var debugLogAdapter: DebugLogAdapter
     private lateinit var unifiedLogger: UnifiedLogger
@@ -90,6 +92,22 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     ) { uri ->
         uri?.let { 
             exportMetricsToFile(it)
+        }
+    }
+    
+    private val exportSubscriptionsLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { 
+            saveSubscriptionsToFile(it)
+        }
+    }
+    
+    private val importSubscriptionsLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { 
+            loadSubscriptionsFromFile(it)
         }
     }
     
@@ -127,6 +145,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         
         configurationManager = ConfigurationManager(this)
         settingsManager = SettingsManager(this)
+        importExportManager = ImportExportManager(this, configurationManager)
         unifiedLogger = UnifiedLoggerImpl(this, configurationManager)
         metricsReader = MetricsReader(this, settingsManager)
         
@@ -294,6 +313,15 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 Toast.makeText(this@MainActivity, "Sample deep link added to debug logs", Toast.LENGTH_SHORT).show()
                 true
             }
+            
+            // Save and load subscription button handlers
+            saveSubscriptionButton.setOnClickListener {
+                saveSubscriptions()
+            }
+            
+            loadSubscriptionButton.setOnClickListener {
+                loadSubscriptions()
+            }
         }
     }
     
@@ -356,6 +384,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         } else {
             View.GONE
         }
+        
+        // Update save button state based on subscription count
+        updateSaveButtonState(configurations.isEmpty())
     }
     
     private fun refreshDebugLogs() {
@@ -363,6 +394,27 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         debugLogAdapter.setLogs(logs)
         debugLogAdapter.setFilter(currentLogFilter)
         updateDebugStats()
+    }
+    
+    private fun updateSaveButtonState(isEmpty: Boolean) {
+        val saveButton = binding.saveSubscriptionButton
+        val context = saveButton.context
+        
+        saveButton.isEnabled = !isEmpty
+        
+        if (isEmpty) {
+            // Inactive state: Use Widget.App.Button.Outlined style (like Load button)
+            saveButton.backgroundTintList = ContextCompat.getColorStateList(context, android.R.color.transparent)
+            saveButton.strokeColor = ContextCompat.getColorStateList(context, com.cmdruid.pubsub.R.color.terminal_orange_secondary)
+            saveButton.setTextColor(ContextCompat.getColor(context, com.cmdruid.pubsub.R.color.terminal_orange_secondary))
+            saveButton.alpha = 0.6f // Slightly dimmed when disabled
+        } else {
+            // Active state: Use Widget.App.Button style - "LIGHT UP"!
+            saveButton.backgroundTintList = ContextCompat.getColorStateList(context, com.cmdruid.pubsub.R.color.terminal_orange_secondary)
+            saveButton.strokeColor = null // Remove stroke for filled style
+            saveButton.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+            saveButton.alpha = 1.0f // Full opacity when enabled
+        }
     }
     
     private fun loadDebugLogsAsync() {
@@ -472,6 +524,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         // IMPORTANT: Invalidate settings cache to pick up changes from settings screen
         settingsManager.invalidateCache()
         
+        // Refresh configurations in case they were modified in other activities
+        refreshConfigurations()
+        
         // Battery optimization: Track app resume time and send state change
         val currentTime = System.currentTimeMillis()
         val backgroundDuration = if (appPausedTime > 0) currentTime - appPausedTime else 0L
@@ -487,7 +542,6 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         checkAndFixServiceState()
         
         updateServiceStatus()
-        refreshConfigurations()
         // Load debug logs asynchronously to avoid blocking UI on resume
         loadDebugLogsAsync()
         
@@ -972,6 +1026,90 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "Error exporting metrics: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    
+    private fun saveSubscriptions() {
+        // Check if there are subscriptions to save
+        val configurations = configurationManager.getConfigurations()
+        if (configurations.isEmpty()) {
+            Toast.makeText(this, "No subscriptions to save", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
+        val timestamp = dateFormat.format(Date())
+        val filename = "pubsub_subscriptions_$timestamp.json"
+        
+        exportSubscriptionsLauncher.launch(filename)
+    }
+    
+    private fun loadSubscriptions() {
+        importSubscriptionsLauncher.launch(arrayOf("application/json"))
+    }
+    
+    private fun saveSubscriptionsToFile(uri: android.net.Uri) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = importExportManager.exportConfigurations(uri)
+                withContext(Dispatchers.Main) {
+                    when (result) {
+                        is com.cmdruid.pubsub.data.ExportResult.Success -> {
+                            Toast.makeText(
+                                this@MainActivity,
+                                getString(R.string.subscription_saved_success),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            unifiedLogger.info(LogDomain.UI, "Subscriptions exported: ${result.subscriptionCount} subscriptions to ${result.filename}")
+                        }
+                        is com.cmdruid.pubsub.data.ExportResult.Error -> {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Export failed: ${result.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            unifiedLogger.error(LogDomain.UI, "Subscription export failed: ${result.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Error exporting subscriptions: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    
+    private fun loadSubscriptionsFromFile(uri: android.net.Uri) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = importExportManager.importConfigurations(uri, com.cmdruid.pubsub.data.ImportMode.ADD_NEW_ONLY)
+                withContext(Dispatchers.Main) {
+                    when (result) {
+                        is com.cmdruid.pubsub.data.ImportResult.Success -> {
+                            Toast.makeText(
+                                this@MainActivity,
+                                getString(R.string.subscription_loaded_success),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            unifiedLogger.info(LogDomain.UI, "Subscriptions imported: ${result.importedCount} new, ${result.duplicateCount} duplicates, ${result.skippedCount} skipped")
+                            refreshConfigurations()
+                        }
+                        is com.cmdruid.pubsub.data.ImportResult.Error -> {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Import failed: ${result.message}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            unifiedLogger.error(LogDomain.UI, "Subscription import failed: ${result.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Error importing subscriptions: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
