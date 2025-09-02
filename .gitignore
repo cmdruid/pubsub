@@ -163,3 +163,7 @@ compose-metrics/
 # Dependency graph generator
 dependency-graph.dot
 dependency-graph.png
+
+# Local Data
+NOTES.md
+TODO.md
