@@ -1,6 +1,7 @@
 package com.cmdruid.pubsub.data
 
 import com.cmdruid.pubsub.nostr.NostrFilter
+import com.cmdruid.pubsub.utils.UriBuilder
 import java.util.UUID
 
 /**
@@ -34,6 +35,7 @@ data class Configuration(
                relayUrls.isNotEmpty() &&
                relayUrls.all { it.isNotBlank() } &&
                targetUri.isNotBlank() &&
+               UriBuilder.isValidUri(targetUri) &&
                filter.isValid()
     }
     

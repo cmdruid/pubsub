@@ -30,7 +30,7 @@ class ConfigurationTest {
             validConfig.copy(name = ""), // Empty name
             validConfig.copy(relayUrls = emptyList()), // No relay URLs
             validConfig.copy(targetUri = ""), // Empty target URI
-            validConfig.copy(subscriptionId = "") // Empty subscription ID
+            validConfig.copy(relayUrls = listOf("", "wss://valid.relay")) // Contains blank relay URL
         )
         
         invalidConfigs.forEach { config ->

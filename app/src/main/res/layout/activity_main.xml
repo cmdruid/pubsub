@@ -162,22 +162,29 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
+                            android:gravity="center_vertical"
                             android:layout_marginStart="8dp">
 
                             <com.google.android.material.button.MaterialButton
-                                android:id="@+id/loadSubscriptionButton"
+                                android:id="@+id/importSubscriptionButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Load"
+                                android:minHeight="36dp"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="8dp"
+                                android:text="Import"
                                 android:textSize="12sp"
-                                android:layout_marginEnd="4dp"
+                                android:layout_marginEnd="8dp"
                                 style="@style/Widget.App.Button.Outlined" />
 
                             <com.google.android.material.button.MaterialButton
-                                android:id="@+id/saveSubscriptionButton"
+                                android:id="@+id/exportSubscriptionButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Save"
+                                android:minHeight="36dp"
+                                android:paddingHorizontal="12dp"
+                                android:paddingVertical="8dp"
+                                android:text="Export"
                                 android:textSize="12sp"
                                 style="@style/Widget.App.Button.Outlined" />
 
@@ -491,6 +498,19 @@
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- App Version Display -->
+            <TextView
+                android:id="@+id/versionText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Version 0.9.6"
+                android:textAlignment="center"
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp"
+                android:alpha="0.7" />
 
         </LinearLayout>
 

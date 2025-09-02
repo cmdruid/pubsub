@@ -110,6 +110,16 @@ android {
         }
     }
     
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/LICENSE.md",
+                "META-INF/LICENSE-notice.md",
+                "META-INF/NOTICE.md"
+            )
+        }
+    }
+    
     // Configure custom APK/AAB names with version
     applicationVariants.all {
         val variant = this

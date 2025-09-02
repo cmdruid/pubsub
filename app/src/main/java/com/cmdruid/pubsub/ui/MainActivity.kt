@@ -1,6 +1,7 @@
 package com.cmdruid.pubsub.ui
 
 import android.Manifest
+import com.cmdruid.pubsub.BuildConfig
 import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -99,7 +100,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         uri?.let { 
-            saveSubscriptionsToFile(it)
+            exportSubscriptionsToFile(it)
         }
     }
     
@@ -107,7 +108,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let { 
-            loadSubscriptionsFromFile(it)
+            importSubscriptionsFromFile(it)
         }
     }
     
@@ -160,6 +161,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         setupDebugLogsRecyclerView()
         setupMetricsCard()
         setupUI()
+        setupVersionDisplay()
         requestNotificationPermission()
         updateServiceStatus()
         refreshConfigurations()
@@ -314,13 +316,13 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 true
             }
             
-            // Save and load subscription button handlers
-            saveSubscriptionButton.setOnClickListener {
-                saveSubscriptions()
+            // Export and import subscription button handlers
+            exportSubscriptionButton.setOnClickListener {
+                exportSubscriptions()
             }
             
-            loadSubscriptionButton.setOnClickListener {
-                loadSubscriptions()
+            importSubscriptionButton.setOnClickListener {
+                importSubscriptions()
             }
         }
     }
@@ -397,7 +399,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     }
     
     private fun updateSaveButtonState(isEmpty: Boolean) {
-        val saveButton = binding.saveSubscriptionButton
+        val saveButton = binding.exportSubscriptionButton
         val context = saveButton.context
         
         saveButton.isEnabled = !isEmpty
@@ -1031,7 +1033,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         }
     }
     
-    private fun saveSubscriptions() {
+    private fun exportSubscriptions() {
         // Check if there are subscriptions to save
         val configurations = configurationManager.getConfigurations()
         if (configurations.isEmpty()) {
@@ -1046,11 +1048,11 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         exportSubscriptionsLauncher.launch(filename)
     }
     
-    private fun loadSubscriptions() {
+    private fun importSubscriptions() {
         importSubscriptionsLauncher.launch(arrayOf("application/json"))
     }
     
-    private fun saveSubscriptionsToFile(uri: android.net.Uri) {
+    private fun exportSubscriptionsToFile(uri: android.net.Uri) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val result = importExportManager.exportConfigurations(uri)
@@ -1082,7 +1084,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         }
     }
     
-    private fun loadSubscriptionsFromFile(uri: android.net.Uri) {
+    private fun importSubscriptionsFromFile(uri: android.net.Uri) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val result = importExportManager.importConfigurations(uri, com.cmdruid.pubsub.data.ImportMode.ADD_NEW_ONLY)
@@ -1129,5 +1131,12 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     override fun onDebugConsoleVisibilityChanged(visible: Boolean) {
         // Update debug console visibility when settings change
         updateDebugConsoleVisibility()
+    }
+    
+    /**
+     * Setup version display at bottom of main screen
+     */
+    private fun setupVersionDisplay() {
+        binding.versionText.text = "Version ${BuildConfig.VERSION_NAME}"
     }
 }

@@ -71,6 +71,7 @@ data class NostrFilter(
                aTags.isNullOrEmpty() &&
                since == null &&
                until == null &&
+               limit == null &&
                search.isNullOrBlank()
     }
     

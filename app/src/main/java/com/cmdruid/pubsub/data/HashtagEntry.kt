@@ -39,7 +39,7 @@ data class HashtagEntry(
             return if (parts.size == 2) {
                 val tag = parts[0].trim()
                 val value = parts[1].trim()
-                if (tag.length == 1 && tag.matches(Regex("[a-zA-Z]")) && value.isNotBlank()) {
+                if (isValidTag(tag) && value.isNotBlank()) {
                     HashtagEntry(tag, value)
                 } else null
             } else null
@@ -47,13 +47,13 @@ data class HashtagEntry(
         
         /**
          * Validate a tag character for UI input
-         * Excludes reserved tags 'e' and 'p' which have dedicated UI fields
-         * Note: This is for UI validation only - filters can contain e/p tags from external sources
+         * Excludes reserved tags 'e', 'p', and 't' which have dedicated UI fields
+         * Note: This is for UI validation only - filters can contain e/p/t tags from external sources
          */
         fun isValidTag(tag: String): Boolean {
             return tag.length == 1 && 
                    tag.matches(Regex("[a-zA-Z]")) && 
-                   tag !in listOf("e", "p", "E", "P") // Prevent UI confusion with dedicated fields
+                   tag !in listOf("e", "p", "t", "E", "P", "T") // Prevent UI confusion with dedicated fields
         }
     }
 }

@@ -10,7 +10,7 @@ data class AppSettings(
     val notificationFrequency: NotificationFrequency = NotificationFrequency.IMMEDIATE,
     val defaultEventViewer: String = "https://njump.me",
     val defaultRelayServer: String = "wss://relay.damus.io",
-    val showDebugConsole: Boolean = true,
+    val showDebugConsole: Boolean = BuildConfig.DEBUG,
     val performanceMetrics: PerformanceMetricsSettings = PerformanceMetricsSettings.getDefault()
 ) {
     /**

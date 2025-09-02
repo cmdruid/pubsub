@@ -35,13 +35,13 @@
     <string name="local_filter">Local Filter</string>
     <string name="content_keywords">Content Keywords</string>
     <string name="exclude_mentions_to_self">Exclude mentions to self</string>
-    <string name="exclude_replies_to_events">Exclude refs from creators</string>
-    <string name="exclude_mentions_to_self_description">Ignore mention events created by the author mentioning themselves.</string>
-    <string name="exclude_replies_to_events_description">Ignore reference events created by the author of the event thread.</string>
+    <string name="exclude_replies_to_events">Exclude references to self</string>
+    <string name="exclude_mentions_to_self_description">Ignore mentions created by authors who mention themselves.</string>
+    <string name="exclude_replies_to_events_description">Ignore references created by the author of an event thread.</string>
 
     <!-- Import/Export strings -->
-    <string name="save_subscription">Save subscription</string>
-    <string name="load_subscription">Load subscription</string>
+    <string name="save_subscription">Export subscription</string>
+    <string name="load_subscription">Import subscription</string>
     <string name="subscription_saved_success">Subscription saved successfully</string>
     <string name="subscription_loaded_success">Subscription loaded successfully</string>
 </resources>

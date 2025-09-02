@@ -15,7 +15,7 @@ class TagSelectorView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : Spinner(context, attrs, defStyleAttr) {
+) : androidx.appcompat.widget.AppCompatSpinner(context, attrs, defStyleAttr) {
     
     companion object {
         // Available letters excluding reserved tags (e, p, t)

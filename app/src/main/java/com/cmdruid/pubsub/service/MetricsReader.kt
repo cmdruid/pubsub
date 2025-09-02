@@ -73,11 +73,15 @@ class MetricsReader(
         val currentBatteryLevel = prefs.getInt("last_battery_level", -1)
         
         val optimizationRate = if (batteryChecks > 0) {
-            (optimizationsApplied.toDouble() / batteryChecks * 100.0)
+            val rate = (optimizationsApplied.toDouble() / batteryChecks * 100.0)
+            // Cap at 100% to prevent display issues
+            minOf(rate, 100.0)
         } else 0.0
         
         val wakeLockOptimizationRate = if (wakeLockAcquisitions > 0) {
-            (wakeLockOptimizations.toDouble() / wakeLockAcquisitions * 100.0)
+            val rate = (wakeLockOptimizations.toDouble() / wakeLockAcquisitions * 100.0)
+            // Cap at 100% to prevent display issues
+            minOf(rate, 100.0)
         } else 0.0
         
         return BatteryReport(
