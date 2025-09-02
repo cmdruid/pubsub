@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.9.6]
+
+- **Major Testing Infrastructure Overhaul**: Added comprehensive test coverage with 139 new tests across all critical components.
+
+- **Complete Integration Testing Framework**: Implemented dedicated testing tools with NIP-01 compliant relay simulation.
+
+- **Service Architecture Refactoring**: 
+  - Replaced `WebSocketConnectionManager` with new `RelayConnectionManager` (504 lines of new code).
+  - Refactored `MessageHandler` into `MessageProcessor` with enhanced functionality.
+  - Updated `SubscriptionManager` with improved per-relay timestamp tracking.
+  - Added new `HealthMonitor` and `HealthThresholds` for better service monitoring.
+  - Enhanced `MetricsCollector` and added `MetricsReader` for comprehensive metrics.
+
+- **Battery Optimization Improvements**: Streamlined `BatteryPowerManager` and removed redundant battery logging components.
+
+- **UI Enhancements**:
+  - Major updates to `MainActivity` with improved layout and functionality.
+  - Enhanced `ConfigurationEditorActivity` with better user experience.
+  - Added new `TagSelectorView` component for better tag management.
+  - Updated string resources and color schemes for better accessibility.
+
+- **Deep Link and URI Handling**: Enhanced `DeepLinkHandler` and `UriBuilder` with improved nevent support.
+
+- **Build and Development Tools**: 
+  - Added comprehensive build scripts (`build.sh`, `version.sh`).
+  - Enhanced release script with better automation.
+
+- **Code Quality**: Removed obsolete test files and consolidated testing approach for better maintainability.
+
+-**Improved Performance**: Vastly improved performance of health monitor and resubscriptions.
+
+- **Feature Additions**: Added a number of new features to Subscriptions and Settings.
+
 ## [0.9.5]
 
 - Added export button to debug console.
