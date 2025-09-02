@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # PubSub Android Release Script
-# Usage: ./script/release.sh [version] [--skip-build] [--skip-tag]
-# If no version is provided, it will read from app/build.gradle.kts
+# Usage: ./script/release.sh [--skip-build] [--skip-tag]
+# Version is always read from app/build.gradle.kts (use ./script/version.sh to set version)
 
 set -e  # Exit on any error
 
@@ -11,7 +11,6 @@ SKIP_BUILD=false
 SKIP_TAG=false
 FORCE_TAG=false
 GITHUB_ONLY=false
-VERSION=""
 
 # Parse command line arguments
 for arg in "$@"; do
@@ -36,10 +35,10 @@ for arg in "$@"; do
         --help|-h)
             echo "PubSub Android Release Script"
             echo ""
-            echo "Usage: ./script/release.sh [version] [options]"
+            echo "Usage: ./script/release.sh [options]"
             echo ""
-            echo "Arguments:"
-            echo "  version                 Version number (e.g., 1.0.0 or v1.0.0). If not provided, reads from build.gradle.kts"
+            echo "Note: Version is always read from app/build.gradle.kts"
+            echo "      Use ./script/version.sh to set the version before releasing"
             echo ""
             echo "Options:"
             echo "  --skip-build            Skip the build process, only create/push git tag"
@@ -49,26 +48,20 @@ for arg in "$@"; do
             echo "  --help, -h              Show this help message"
             echo ""
             echo "Examples:"
-            echo "  ./script/release.sh 1.2.0                    # Release build with version 1.2.0"
-            echo "  ./script/release.sh v1.2.0                   # Same as above (v prefix is handled automatically)"
+            echo "  ./script/version.sh 1.2.0                    # Set version to 1.2.0"
+            echo "  ./script/release.sh                          # Release build with current version"
             echo "  ./script/release.sh --skip-build             # Only create git tag"
-            echo "  ./script/release.sh 1.3.0 --skip-tag        # Build only, no git tag"
-            echo "  ./script/release.sh v0.9.1 --force-tag      # Force recreate existing tag"
-            echo "  ./script/release.sh 0.9.1 --github-only     # Only create tag, let GitHub build"
+            echo "  ./script/release.sh --skip-tag               # Build only, no git tag"
+            echo "  ./script/release.sh --force-tag              # Force recreate existing tag"
+            echo "  ./script/release.sh --github-only            # Only create tag, let GitHub build"
             exit 0
             ;;
-        -*)
-            echo "❌ Unknown option: $arg"
+        *)
+            echo "❌ Unknown argument: $arg"
+            echo "This script no longer accepts version arguments."
+            echo "Use ./script/version.sh to set the version first, then run this script."
             echo "Use --help for usage information"
             exit 1
-            ;;
-        *)
-            if [ -z "$VERSION" ]; then
-                VERSION="$arg"
-            else
-                echo "❌ Multiple version arguments provided"
-                exit 1
-            fi
             ;;
     esac
 done
@@ -127,12 +120,7 @@ check_tag_exists() {
     fi
 }
 
-# Function to update version in build.gradle.kts
-update_gradle_version() {
-    local new_version=$1
-    echo "📝 Updating version in app/build.gradle.kts to $new_version"
-    sed -i "s/versionName = \".*\"/versionName = \"$new_version\"/" app/build.gradle.kts
-}
+
 
 # Function to check and setup keystore
 check_keystore() {
@@ -190,25 +178,15 @@ build_release() {
     fi
 }
 
-# Get version
+# Get version from build.gradle.kts
+VERSION=$(get_gradle_version)
 if [ -z "$VERSION" ]; then
-    VERSION=$(get_gradle_version)
-    if [ -z "$VERSION" ]; then
-        echo "❌ Failed to read version from app/build.gradle.kts"
-        exit 1
-    fi
-    echo "📦 Using version from build.gradle.kts: $VERSION"
-else
-    echo "📦 Using provided version: $VERSION"
-    # Normalize the provided version for consistent handling
-    CLEAN_VERSION=$(get_clean_version "$VERSION")
-    if [ "$SKIP_BUILD" = false ]; then
-        update_gradle_version "$CLEAN_VERSION"
-        VERSION="$CLEAN_VERSION"  # Use clean version for consistency
-    else
-        VERSION="$CLEAN_VERSION"  # Always work with clean version internally
-    fi
+    echo "❌ Failed to read version from app/build.gradle.kts"
+    echo "   Make sure the version is set correctly in the build file"
+    echo "   Use ./script/version.sh to set the version"
+    exit 1
 fi
+echo "📦 Using version from build.gradle.kts: $VERSION"
 
 # Build phase
 if [ "$SKIP_BUILD" = false ]; then
@@ -299,4 +277,5 @@ if [ "$SKIP_TAG" = false ]; then
 fi
 
 echo ""
+echo "🎉 Release process completed!" 
 echo "🎉 Release process completed!" 

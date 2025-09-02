@@ -165,6 +165,7 @@ dependency-graph.dot
 dependency-graph.png
 
 # Local Data
+dist/*
 local/*
 NOTES.md
 TODO.md

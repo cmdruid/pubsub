@@ -38,16 +38,14 @@ class PubSubService : Service() {
         RESTRICTED     // App in restricted standby bucket (heavily limited)
     }
     
-    // DELETED: RelayConnection data class - moved to RelayConnectionManager architecture
-    
+    // Core service components
     private lateinit var configurationManager: ConfigurationManager
     private lateinit var settingsManager: SettingsManager
     private lateinit var metricsCollector: MetricsCollector
     private lateinit var unifiedLogger: UnifiedLogger
     private var serviceJob: Job? = null
-    // DELETED: healthMonitorJob - now handled by dedicated HealthMonitor component
     
-    // MODERN: Clean component architecture with proper dependency injection
+    // Clean component architecture with proper dependency injection
     private lateinit var batteryPowerManager: BatteryPowerManager
     private lateinit var networkManager: NetworkManager
     private lateinit var eventNotificationManager: EventNotificationManager
@@ -96,7 +94,7 @@ class PubSubService : Service() {
             metricsCollector.clearAllData()
         }
         
-        // Initialize REWRITTEN components with context
+        // Initialize core data management components
         subscriptionManager = SubscriptionManager(this)
         eventCache = EventCache(this)
         
@@ -254,7 +252,7 @@ class PubSubService : Service() {
             unifiedLogger = unifiedLogger
         )
         
-        // Initialize MODERN relay connection management
+        // Initialize relay connection management
         relayConnectionManager = RelayConnectionManager(
             configurationManager = configurationManager,
             subscriptionManager = subscriptionManager,
@@ -266,7 +264,7 @@ class PubSubService : Service() {
             sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NETWORK, message) }
         )
         
-        // Initialize MODERN message processor
+        // Initialize message processor
         messageProcessor = MessageProcessor(
             configurationManager = configurationManager,
             subscriptionManager = subscriptionManager,

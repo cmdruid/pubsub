@@ -165,20 +165,6 @@ class TextEntryAdapter(
             }
         }
         
-        /**
-         * Create a validator for hashtags (no # prefix) - DEPRECATED
-         * Use CustomTagAdapter for new custom tag functionality with tag/value pairs
-         */
-        @Deprecated("Use CustomTagAdapter for new custom tag functionality")
-        fun createHashtagValidator(): (String) -> ValidationResult {
-            return { input ->
-                val trimmed = input.trim()
-                when {
-                    trimmed.isBlank() -> ValidationResult(true, normalizedValue = trimmed)
-                    trimmed.startsWith("#") -> ValidationResult(true, normalizedValue = trimmed.substring(1))
-                    else -> ValidationResult(true, normalizedValue = trimmed)
-                }
-            }
-        }
+
     }
 }

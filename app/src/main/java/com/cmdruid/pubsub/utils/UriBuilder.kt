@@ -62,21 +62,7 @@ object UriBuilder {
         }
     }
     
-    /**
-     * Build a simple URI with minimal event data (deprecated - use buildEventUri instead)
-     */
-    @Deprecated("Use buildEventUri with full NostrEvent instead")
-    fun buildSimpleEventUri(baseUri: String, eventId: String, content: String): Uri? {
-        return try {
-            Uri.parse(baseUri).buildUpon().apply {
-                appendQueryParameter("id", eventId)
-                appendQueryParameter("content", content.take(100)) // Limit content length
-            }.build()
-        } catch (e: Exception) {
-            null
-        }
-    }
-    
+
     /**
      * Check if an event would exceed the size limit for URI inclusion
      */

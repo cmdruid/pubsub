@@ -7,9 +7,9 @@ import com.cmdruid.pubsub.nostr.NostrFilter
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * REWRITTEN SubscriptionManager with per-relay timestamp tracking
- * BREAKING CHANGE: Complete replacement of legacy global timestamp approach
+ * Advanced subscription manager with per-relay timestamp tracking
  * Eliminates duplicate events by maintaining precise timestamps per relay connection
+ * Provides efficient subscription lifecycle management and health monitoring
  */
 class SubscriptionManager(private val context: Context) {
     

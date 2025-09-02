@@ -12,17 +12,18 @@ import com.cmdruid.pubsub.utils.KeywordMatcher
 import com.cmdruid.pubsub.utils.UriBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * CLEAN message processing pipeline
- * BREAKING CHANGE: Complete replacement of MessageHandler with modern architecture
+ * Clean message processing pipeline with battery optimization
  * 
- * Key improvements:
+ * Key features:
  * - Clean separation of concerns
- * - Simple validation pipeline
- * - Efficient event processing
- * - No dependency on legacy RelayConnection
+ * - Efficient validation pipeline with caching
+ * - Batched message processing for battery efficiency
+ * - Background thread processing to prevent ANRs
+ * - Comprehensive event filtering and routing
  */
 class MessageProcessor(
     private val configurationManager: ConfigurationManager,
@@ -35,39 +36,101 @@ class MessageProcessor(
     
     companion object {
         private const val TAG = "MessageProcessor"
+        private const val MAX_QUEUE_SIZE = 100 // Prevent memory issues
+    }
+    
+    // BATTERY OPTIMIZATION: Message queue to batch process messages during high volume
+    private val messageQueue = mutableListOf<QueuedMessage>()
+    private val queueLock = Any()
+    private var isProcessingQueue = false
+    
+    data class QueuedMessage(
+        val messageText: String,
+        val subscriptionId: String,
+        val relayUrl: String,
+        val timestamp: Long
+    )
+    
+    /**
+     * Clean message processing pipeline with BATTERY OPTIMIZATION
+     */
+    fun processMessage(messageText: String, subscriptionId: String, relayUrl: String) {
+        // BATTERY OPTIMIZATION: Queue messages during high volume to batch process
+        synchronized(queueLock) {
+            if (messageQueue.size >= MAX_QUEUE_SIZE) {
+                // Drop oldest message to prevent memory issues
+                messageQueue.removeAt(0)
+                unifiedLogger.warn(LogDomain.EVENT, "Message queue full, dropping oldest message")
+            }
+            
+            messageQueue.add(QueuedMessage(messageText, subscriptionId, relayUrl, System.currentTimeMillis()))
+            
+            // Start processing if not already running
+            if (!isProcessingQueue) {
+                isProcessingQueue = true
+                processMessageQueue()
+            }
+        }
     }
     
     /**
-     * Clean message processing pipeline
+     * Process queued messages in batches for better battery efficiency
      */
-    fun processMessage(messageText: String, subscriptionId: String, relayUrl: String) {
-        // Process messages on a background thread to prevent ANRs
+    private fun processMessageQueue() {
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val parsedMessage = NostrMessage.parseMessage(messageText)
+            while (true) {
+                val messagesToProcess = synchronized(queueLock) {
+                    if (messageQueue.isEmpty()) {
+                        isProcessingQueue = false
+                        return@synchronized emptyList<QueuedMessage>()
+                    }
+                    // Process up to 10 messages at a time for efficiency
+                    val batch = messageQueue.take(10)
+                    messageQueue.removeAll(batch.toSet())
+                    batch
+                }
                 
-                when (parsedMessage) {
-                    is NostrMessage.ParsedMessage.EventMessage -> {
-                        processEvent(parsedMessage.event, subscriptionId, relayUrl)
-                    }
-                    is NostrMessage.ParsedMessage.EoseMessage -> {
-                        confirmSubscription(subscriptionId, relayUrl)
-                    }
-                    is NostrMessage.ParsedMessage.NoticeMessage -> {
-                        processNotice(parsedMessage.notice, subscriptionId)
-                    }
-                    is NostrMessage.ParsedMessage.OkMessage -> {
-                        processOkMessage(parsedMessage.eventId, parsedMessage.success, subscriptionId)
-                    }
-                    is NostrMessage.ParsedMessage.UnknownMessage -> {
-                        unifiedLogger.warn(LogDomain.EVENT, "Unknown message type: ${parsedMessage.type}")
-                    }
-                    null -> {
-                        unifiedLogger.warn(LogDomain.EVENT, "Failed to parse message from $relayUrl")
+                if (messagesToProcess.isEmpty()) break
+                
+                // Process batch of messages
+                messagesToProcess.forEach { queuedMessage ->
+                    try {
+                        processMessageInternal(queuedMessage.messageText, queuedMessage.subscriptionId, queuedMessage.relayUrl)
+                    } catch (e: Exception) {
+                        unifiedLogger.error(LogDomain.EVENT, "Error processing queued message from ${queuedMessage.relayUrl}: ${e.message}")
                     }
                 }
-            } catch (e: Exception) {
-                unifiedLogger.error(LogDomain.EVENT, "Error processing message from $relayUrl: ${e.message}")
+                
+                // Small delay between batches to prevent CPU spike
+                delay(10)
+            }
+        }
+    }
+    
+    /**
+     * Internal message processing logic
+     */
+    private fun processMessageInternal(messageText: String, subscriptionId: String, relayUrl: String) {
+        val parsedMessage = NostrMessage.parseMessage(messageText)
+        
+        when (parsedMessage) {
+            is NostrMessage.ParsedMessage.EventMessage -> {
+                processEvent(parsedMessage.event, subscriptionId, relayUrl)
+            }
+            is NostrMessage.ParsedMessage.EoseMessage -> {
+                confirmSubscription(subscriptionId, relayUrl)
+            }
+            is NostrMessage.ParsedMessage.NoticeMessage -> {
+                processNotice(parsedMessage.notice, subscriptionId)
+            }
+            is NostrMessage.ParsedMessage.OkMessage -> {
+                processOkMessage(parsedMessage.eventId, parsedMessage.success, subscriptionId)
+            }
+            is NostrMessage.ParsedMessage.UnknownMessage -> {
+                unifiedLogger.warn(LogDomain.EVENT, "Unknown message type: ${parsedMessage.type}")
+            }
+            null -> {
+                unifiedLogger.warn(LogDomain.EVENT, "Failed to parse message from $relayUrl")
             }
         }
     }

@@ -21,23 +21,15 @@ class ConfigurationManager(context: Context) {
         private const val KEY_DEBUG_LOGS = "debug_logs"
         private const val KEY_STRUCTURED_LOGS = "structured_logs"
         
-        // Migration from old preferences
-        private const val OLD_PREFS_NAME = "pubsub_prefs"
-        private const val OLD_KEY_RELAY_URL = "relay_url"
-        private const val OLD_KEY_PUBKEY = "pubkey"
-        private const val OLD_KEY_TARGET_URI = "target_uri"
-        private const val OLD_KEY_DIRECT_MODE = "direct_mode"
+
     }
     
     private val sharedPrefs: SharedPreferences = 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val oldPrefs: SharedPreferences = 
-        context.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
+
     private val gson = Gson()
     
-    init {
-        migrateOldPreferences()
-    }
+
     
     /**
      * Get configuration by ID
@@ -225,28 +217,5 @@ class ConfigurationManager(context: Context) {
         sharedPrefs.edit().clear().apply()
     }
     
-    /**
-     * Migrate from old single-configuration format
-     */
-    private fun migrateOldPreferences() {
-        if (getConfigurations().isNotEmpty()) return // Already have new format
-        
-        val relayUrl = oldPrefs.getString(OLD_KEY_RELAY_URL, null)
-        val pubkey = oldPrefs.getString(OLD_KEY_PUBKEY, null)
-        val targetUri = oldPrefs.getString(OLD_KEY_TARGET_URI, null)
-        
-        if (!relayUrl.isNullOrBlank() && !pubkey.isNullOrBlank() && !targetUri.isNullOrBlank()) {
-            val filter = NostrFilter.forMentions(pubkey)
-            val configuration = Configuration(
-                name = "Migrated Subscription",
-                relayUrls = listOf(relayUrl),
-                filter = filter,
-                targetUri = targetUri
-            )
-            addConfiguration(configuration)
-            
-            // Clear old preferences
-            oldPrefs.edit().clear().apply()
-        }
-    }
+
 }

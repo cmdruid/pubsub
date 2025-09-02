@@ -19,14 +19,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
- * MODERN relay connection manager with clean separation of concerns
- * BREAKING CHANGE: Complete architectural overhaul of WebSocketConnectionManager
+ * Modern relay connection manager with clean separation of concerns
  * 
- * Key improvements:
+ * Key features:
  * - Clean separation: One manager per relay
- * - Simple reconnection logic
- * - Efficient resource sharing
- * - Clear state management
+ * - Simple reconnection logic with exponential backoff
+ * - Efficient resource sharing with optimized OkHttpClient pooling
+ * - Clear state management and health monitoring
+ * - Battery-aware connection optimization
  */
 class RelayConnectionManager(
     private val configurationManager: ConfigurationManager,
@@ -45,7 +45,8 @@ class RelayConnectionManager(
     private val relayManagers = ConcurrentHashMap<String, SingleRelayManager>()
     
     // Shared resources - more efficient than per-connection clients
-    private val okHttpClient = createOptimizedOkHttpClient()
+    private var okHttpClient = createOptimizedOkHttpClient()
+    private var currentPingIntervalSeconds = 30L
     
     /**
      * Connect to all enabled relay configurations
@@ -193,12 +194,45 @@ class RelayConnectionManager(
     }
     
     /**
-     * Update ping interval for all connections
+     * Update ping interval for all connections - OPTIMIZED battery-aware implementation
      */
     fun updatePingInterval(newInterval: Long) {
-        // Modern approach: Shared client automatically handles ping interval changes
-        // No need to refresh all connections like the old implementation
-        sendDebugLog("🔋 Ping interval updated to ${newInterval}s - connections will adapt automatically")
+        if (currentPingIntervalSeconds == newInterval) {
+            return // No change needed
+        }
+        
+        val oldInterval = currentPingIntervalSeconds
+        currentPingIntervalSeconds = newInterval
+        
+        // BATTERY OPTIMIZATION: Only recreate client if interval changed significantly
+        val significantChange = kotlin.math.abs(newInterval - oldInterval) >= 30L
+        
+        if (significantChange) {
+            // Create new optimized client with updated ping interval
+            val newClient = createOptimizedOkHttpClient()
+            val oldClient = okHttpClient
+            okHttpClient = newClient
+            
+            // Update all existing relay managers with new client
+            relayManagers.values.forEach { manager ->
+                manager.updateOkHttpClient(newClient)
+            }
+            
+            // Schedule old client cleanup to allow existing connections to complete
+            CoroutineScope(Dispatchers.IO).launch {
+                delay(5000) // 5 second grace period
+                try {
+                    oldClient.dispatcher.executorService.shutdown()
+                    oldClient.connectionPool.evictAll()
+                } catch (e: Exception) {
+                    // Ignore cleanup errors
+                }
+            }
+            
+            sendDebugLog("🔋 Ping interval updated: ${oldInterval}s → ${newInterval}s (client recreated)")
+        } else {
+            sendDebugLog("🔋 Ping interval updated: ${oldInterval}s → ${newInterval}s (minor change, client reused)")
+        }
     }
     
     /**
@@ -219,7 +253,7 @@ class RelayConnectionManager(
     
     private fun createOptimizedOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
-            .pingInterval(30, TimeUnit.SECONDS) // Will be dynamically adjusted
+            .pingInterval(currentPingIntervalSeconds, TimeUnit.SECONDS) // Dynamic ping interval
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -241,11 +275,11 @@ class RelayConnectionManager(
 
 /**
  * Manages a single relay connection with clean state management
- * MODERN: Each relay is completely independent
+ * Each relay connection is completely independent with its own WebSocket and state
  */
 class SingleRelayManager(
     private val relayUrl: String,
-    private val okHttpClient: OkHttpClient,
+    private var okHttpClient: OkHttpClient,
     private val batteryPowerManager: BatteryPowerManager,
     private val networkManager: NetworkManager,
     private val subscriptionManager: SubscriptionManager,
@@ -392,6 +426,15 @@ class SingleRelayManager(
         connectionState = ConnectionState.DISCONNECTED
         currentSubscriptionId = null
         subscriptionConfirmed = false
+    }
+    
+    /**
+     * Update OkHttpClient for battery optimization
+     */
+    fun updateOkHttpClient(newClient: OkHttpClient) {
+        okHttpClient = newClient
+        // Note: Existing WebSocket connections will continue with old client
+        // New connections will use the updated client with optimized ping interval
     }
     
     /**
