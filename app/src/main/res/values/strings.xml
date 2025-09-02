@@ -34,10 +34,10 @@
     <!-- Local Filter strings -->
     <string name="local_filter">Local Filter</string>
     <string name="content_keywords">Content Keywords</string>
-    <string name="exclude_mentions_to_self">Exclude circular pubkey mentions</string>
-    <string name="exclude_replies_to_events">Exclude refrences from thread creators</string>
-    <string name="exclude_mentions_to_self_description">Ignore mention events when they originate from their own pubkey.</string>
-    <string name="exclude_replies_to_events_description">Ignore reference events created by the author of the thread.</string>
+    <string name="exclude_mentions_to_self">Exclude mentions to self</string>
+    <string name="exclude_replies_to_events">Exclude refs from creators</string>
+    <string name="exclude_mentions_to_self_description">Ignore mention events created by the author mentioning themselves.</string>
+    <string name="exclude_replies_to_events_description">Ignore reference events created by the author of the event thread.</string>
 
     <!-- Import/Export strings -->
     <string name="save_subscription">Save subscription</string>
