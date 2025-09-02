@@ -1,5 +1,7 @@
 package com.cmdruid.pubsub.data
 
+import com.cmdruid.pubsub.BuildConfig
+
 /**
  * Data class representing user-configurable app settings
  */
@@ -8,7 +10,8 @@ data class AppSettings(
     val notificationFrequency: NotificationFrequency = NotificationFrequency.IMMEDIATE,
     val defaultEventViewer: String = "https://njump.me",
     val defaultRelayServer: String = "wss://relay.damus.io",
-    val showDebugConsole: Boolean = true
+    val showDebugConsole: Boolean = true,
+    val performanceMetrics: PerformanceMetricsSettings = PerformanceMetricsSettings.getDefault()
 ) {
     /**
      * Get ping intervals based on battery mode
@@ -153,6 +156,26 @@ object SettingsPresets {
             url.contains("relay.nostr.info") -> "Nostr Info"
             url.contains("wellorder.net") -> "WellOrder"
             else -> url
+        }
+    }
+}
+
+/**
+ * Simple performance metrics configuration - just on/off
+ */
+data class PerformanceMetricsSettings(
+    val enabled: Boolean
+) {
+    companion object {
+        fun getDefault(): PerformanceMetricsSettings {
+            // Smart defaults: ON for debug builds, OFF for release
+            return PerformanceMetricsSettings(
+                enabled = BuildConfig.DEBUG
+            )
+        }
+        
+        fun disabled(): PerformanceMetricsSettings {
+            return PerformanceMetricsSettings(enabled = false)
         }
     }
 }

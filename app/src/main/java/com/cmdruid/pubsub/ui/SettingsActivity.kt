@@ -21,6 +21,7 @@ import com.cmdruid.pubsub.data.ImportExportManager
 import com.cmdruid.pubsub.data.ImportMode
 import com.cmdruid.pubsub.data.ImportResult
 import com.cmdruid.pubsub.data.NotificationFrequency
+import com.cmdruid.pubsub.data.PerformanceMetricsSettings
 import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.data.ValidationResult
 import com.cmdruid.pubsub.databinding.ActivitySettingsBinding
@@ -102,6 +103,26 @@ class SettingsActivity : AppCompatActivity() {
         binding.importButton.setOnClickListener {
             startImport()
         }
+        
+        setupPerformanceMetricsSection()
+    }
+    
+    private fun setupPerformanceMetricsSection() {
+        val performanceMetricsSwitch = binding.performanceMetricsSwitch
+        
+        // Simple on/off toggle
+        performanceMetricsSwitch.setOnCheckedChangeListener { _, isChecked ->
+            showMetricsToast(isChecked)
+        }
+    }
+    
+    private fun showMetricsToast(enabled: Boolean) {
+        val message = if (enabled) {
+            "Performance metrics enabled - minimal impact (~0.1% battery)"
+        } else {
+            "Performance metrics disabled - all data cleared from device"
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
     
     private fun loadCurrentSettings() {
@@ -123,6 +144,9 @@ class SettingsActivity : AppCompatActivity() {
         
         // Load debug console setting
         binding.debugConsoleSwitch.isChecked = settings.showDebugConsole
+        
+        // Load performance metrics setting
+        binding.performanceMetricsSwitch.isChecked = settings.performanceMetrics.enabled
     }
     
     private fun saveSettings() {
@@ -164,13 +188,19 @@ class SettingsActivity : AppCompatActivity() {
             it.displayName == selectedFrequencyText 
         } ?: NotificationFrequency.IMMEDIATE
         
+        // Create performance metrics settings
+        val performanceMetrics = PerformanceMetricsSettings(
+            enabled = binding.performanceMetricsSwitch.isChecked
+        )
+        
         // Create and save settings
         val newSettings = AppSettings(
             batteryMode = batteryMode,
             notificationFrequency = notificationFrequency,
             defaultEventViewer = eventViewer,
             defaultRelayServer = relayServer,
-            showDebugConsole = binding.debugConsoleSwitch.isChecked
+            showDebugConsole = binding.debugConsoleSwitch.isChecked,
+            performanceMetrics = performanceMetrics
         )
         
         settingsManager.saveSettingsWithNotification(newSettings)

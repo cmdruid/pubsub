@@ -23,8 +23,7 @@ import kotlinx.coroutines.launch
  */
 class BatteryPowerManager(
     private val context: Context,
-    private val batteryOptimizationLogger: BatteryOptimizationLogger,
-    private val batteryMetricsCollector: BatteryMetricsCollector,
+    private val metricsCollector: MetricsCollector,
     private val settingsManager: SettingsManager,
     private val onAppStateChange: (PubSubService.AppState, Long) -> Unit,
     private val onPingIntervalChange: () -> Unit,
@@ -144,18 +143,26 @@ class BatteryPowerManager(
     fun isDozeMode(): Boolean = isDozeMode
     
     /**
+     * Helper method to track battery optimizations with conditional metrics
+     */
+    private fun trackOptimization(type: String, applied: Boolean = true) {
+        metricsCollector.trackBatteryOptimization(
+            optimizationType = type,
+            batteryLevel = getCurrentBatteryLevel(),
+            optimizationApplied = applied
+        )
+    }
+    
+    /**
      * Setup power management
      */
     private fun setupPowerManagement() {
         powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         
-        batteryOptimizationLogger.logOptimization(
-            category = BatteryOptimizationLogger.LogCategory.WAKE_LOCK,
-            message = "Power management initialized",
-            data = mapOf(
-                "wake_lock_timeout_ms" to wakeLockTimeoutMs,
-                "device_idle_mode" to powerManager.isDeviceIdleMode
-            )
+        metricsCollector.trackBatteryOptimization(
+            optimizationType = "power_management_init",
+            batteryLevel = getCurrentBatteryLevel(),
+            optimizationApplied = true
         )
         
         sendDebugLog("Power management setup complete")
@@ -180,28 +187,14 @@ class BatteryPowerManager(
             currentAppState = PubSubService.AppState.DOZE
             updatePingInterval()
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.APP_STATE,
-                message = "Initial doze mode detected",
-                data = mapOf(
-                    "previous_state" to previousState.name,
-                    "current_state" to PubSubService.AppState.DOZE.name,
-                    "is_doze_mode" to isDozeMode,
-                    "ping_interval_seconds" to currentPingInterval
-                )
+            metricsCollector.trackBatteryOptimization(
+                optimizationType = "doze_mode_detected",
+                batteryLevel = getCurrentBatteryLevel(),
+                optimizationApplied = true
             )
         }
         
-        batteryOptimizationLogger.logOptimization(
-            category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
-            message = "Doze detection initialized",
-            data = mapOf(
-                "is_doze_mode" to isDozeMode,
-                "current_app_state" to currentAppState.name,
-                "ping_interval_seconds" to currentPingInterval,
-                "api_level" to Build.VERSION.SDK_INT
-            )
-        )
+        trackOptimization("doze_detection_initialized")
         
         sendDebugLog("Doze detection setup complete (doze: $isDozeMode)")
     }
@@ -222,23 +215,7 @@ class BatteryPowerManager(
         
         batteryLevelChangedTime = System.currentTimeMillis()
         
-        batteryOptimizationLogger.logOptimization(
-            category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
-            message = "Battery monitoring initialized",
-            data = mapOf(
-                "initial_battery_level" to currentBatteryLevel,
-                "is_charging" to isCharging,
-                "battery_thresholds" to mapOf(
-                    "critical" to BATTERY_LEVEL_CRITICAL,
-                    "low" to BATTERY_LEVEL_LOW,
-                    "high" to BATTERY_LEVEL_HIGH
-                ),
-                "ping_intervals" to mapOf(
-                    "critical_battery" to "${PING_INTERVAL_CRITICAL_BATTERY_SECONDS}s",
-                    "low_battery" to "${PING_INTERVAL_LOW_BATTERY_SECONDS}s"
-                )
-            )
-        )
+        trackOptimization("battery_monitoring_initialized")
         
         sendDebugLog("Battery monitoring setup complete (level: $currentBatteryLevel%, charging: $isCharging)")
     }
@@ -264,19 +241,7 @@ class BatteryPowerManager(
         // Update app state if already in restricted bucket
         updateAppStateFromStandbyBucket()
         
-        batteryOptimizationLogger.logOptimization(
-            category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
-            message = "App standby monitoring initialized",
-            data = mapOf(
-                "initial_standby_bucket" to getStandbyBucketName(currentStandbyBucket),
-                "current_app_state" to currentAppState.name,
-                "ping_intervals" to mapOf(
-                    "rare" to "${PING_INTERVAL_RARE_SECONDS}s",
-                    "restricted" to "${PING_INTERVAL_RESTRICTED_SECONDS}s"
-                ),
-                "api_level" to Build.VERSION.SDK_INT
-            )
-        )
+        trackOptimization("standby_monitoring_initialized")
         
         sendDebugLog("App standby monitoring setup complete (bucket: ${getStandbyBucketName(currentStandbyBucket)})")
     }
@@ -332,14 +297,10 @@ class BatteryPowerManager(
         
         if (oldState != newState) {
             // Log the app state change
-            batteryOptimizationLogger.logAppStateChange(
-                fromState = oldState.name,
-                toState = newState.name,
-                duration = previousStateDuration
-            )
+            metricsCollector.trackBatteryOptimization("app_state_change", getCurrentBatteryLevel(), true)
             
             // Track metrics for effectiveness measurement
-            batteryMetricsCollector.trackAppStateChange(oldState, newState, previousStateDuration)
+            metricsCollector.trackBatteryOptimization("app_state_change", getCurrentBatteryLevel(), true)
             
             // Update state tracking
             currentAppState = newState
@@ -383,25 +344,10 @@ class BatteryPowerManager(
             currentAppState = newAppState
             updatePingInterval()
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.APP_STATE,
-                message = "Doze state changed",
-                data = mapOf(
-                    "previous_doze_state" to previousDozeState,
-                    "current_doze_state" to isDozeMode,
-                    "previous_app_state" to previousAppState.name,
-                    "current_app_state" to newAppState.name,
-                    "state_duration_ms" to previousStateDuration,
-                    "ping_interval_seconds" to currentPingInterval
-                )
-            )
+            trackOptimization("doze_state_changed")
             
             // Update battery metrics
-            batteryMetricsCollector.trackAppStateChange(
-                fromState = previousAppState,
-                toState = newAppState,
-                duration = previousStateDuration
-            )
+            metricsCollector.trackBatteryOptimization("doze_state_change", getCurrentBatteryLevel(), true)
             
             sendDebugLog(
                 "🌙 Doze ${if (isDozeMode) "ENTERED" else "EXITED"}: " +
@@ -414,9 +360,10 @@ class BatteryPowerManager(
         }
         
         // Track doze mode effectiveness
-        batteryMetricsCollector.trackNetworkActivity(
-            eventType = if (isDozeMode) "doze_mode_entered" else "doze_mode_exited",
-            optimized = true
+        metricsCollector.trackConnectionEvent(
+            if (isDozeMode) "doze_mode_entered" else "doze_mode_exited", 
+            "battery_manager", 
+            true
         )
     }
     
@@ -453,15 +400,7 @@ class BatteryPowerManager(
             val previousChargingState = isCharging
             isCharging = newChargingState
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.BATTERY_USAGE,
-                message = "Charging state changed",
-                data = mapOf(
-                    "previous_charging" to previousChargingState,
-                    "current_charging" to isCharging,
-                    "battery_level" to currentBatteryLevel
-                )
-            )
+            trackOptimization("charging_state_changed")
             
             handleBatteryOptimizationChange()
             
@@ -497,25 +436,10 @@ class BatteryPowerManager(
                 else -> "battery_level_change"
             }
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.BATTERY_USAGE,
-                message = "Battery optimization applied",
-                data = mapOf(
-                    "reason" to optimizationReason,
-                    "previous_battery_level" to previousBatteryLevel,
-                    "current_battery_level" to currentBatteryLevel,
-                    "is_charging" to isCharging,
-                    "old_ping_interval" to "${oldPingInterval}s",
-                    "new_ping_interval" to "${newPingInterval}s",
-                    "app_state" to currentAppState.name
-                )
-            )
+            trackOptimization("battery_optimization_applied")
             
-            // Track battery optimization effectiveness
-            batteryMetricsCollector.trackNetworkActivity(
-                eventType = "battery_optimization_applied",
-                optimized = true
-            )
+            // Track battery optimization effectiveness  
+            metricsCollector.trackConnectionEvent("battery_optimization_applied", "battery_manager", true)
             
             sendDebugLog(
                 "🔋 Battery optimization: $optimizationReason " +
@@ -547,16 +471,7 @@ class BatteryPowerManager(
         if (newStandbyBucket != currentStandbyBucket) {
             val bucketDuration = currentTime - standbyBucketChangedTime
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.APP_STATE,
-                message = "App standby bucket changed",
-                data = mapOf(
-                    "previous_bucket" to getStandbyBucketName(currentStandbyBucket),
-                    "current_bucket" to getStandbyBucketName(newStandbyBucket),
-                    "bucket_duration_ms" to bucketDuration,
-                    "previous_app_state" to currentAppState.name
-                )
-            )
+            trackOptimization("standby_bucket_changed")
             
             previousStandbyBucket = currentStandbyBucket
             currentStandbyBucket = newStandbyBucket
@@ -594,23 +509,10 @@ class BatteryPowerManager(
                 else -> "standby_bucket_change"
             }
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.APP_STATE,
-                message = "App state updated from standby bucket",
-                data = mapOf(
-                    "reason" to optimizationReason,
-                    "standby_bucket" to getStandbyBucketName(currentStandbyBucket),
-                    "app_state" to newAppState.name,
-                    "old_ping_interval" to "${oldPingInterval}s",
-                    "new_ping_interval" to "${currentPingInterval}s"
-                )
-            )
+            trackOptimization("app_state_from_standby_bucket")
             
             // Track standby optimization effectiveness
-            batteryMetricsCollector.trackNetworkActivity(
-                eventType = "standby_optimization_applied",
-                optimized = true
-            )
+            metricsCollector.trackConnectionEvent("standby_optimization_applied", "battery_manager", true)
             
             sendDebugLog(
                 "📱 App state updated: ${getStandbyBucketName(currentStandbyBucket)} → $newAppState " +
@@ -677,19 +579,7 @@ class BatteryPowerManager(
             }
         }
         
-        batteryOptimizationLogger.logOptimization(
-            category = BatteryOptimizationLogger.LogCategory.PING_INTERVAL,
-            level = BatteryOptimizationLogger.LogLevel.DEBUG,
-            message = "Current ping interval calculated",
-            data = mapOf(
-                "base_interval" to "${baseInterval}s",
-                "battery_optimized_interval" to "${batteryOptimizedInterval}s",
-                "app_state" to currentAppState.name,
-                "battery_level" to currentBatteryLevel,
-                "is_charging" to isCharging,
-                "optimization_applied" to (baseInterval != batteryOptimizedInterval)
-            )
-        )
+        trackOptimization("ping_interval_calculated")
         
         return batteryOptimizedInterval
     }
@@ -713,15 +603,8 @@ class BatteryPowerManager(
             wakeLockAcquiredTime = System.currentTimeMillis()
             wakeLockReason = reason
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.WAKE_LOCK,
-                message = "Wake lock acquired",
-                data = mapOf(
-                    "reason" to reason,
-                    "duration_ms" to durationMs,
-                    "device_idle" to powerManager.isDeviceIdleMode
-                )
-            )
+            trackOptimization("wake_lock_acquired")
+            metricsCollector.trackWakeLockUsage(acquired = true, optimized = false)
             
             sendDebugLog("Wake lock acquired: $reason (${durationMs}ms)")
             
@@ -734,15 +617,7 @@ class BatteryPowerManager(
                 }
             }
         } catch (e: Exception) {
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.WAKE_LOCK,
-                level = BatteryOptimizationLogger.LogLevel.ERROR,
-                message = "Failed to acquire wake lock",
-                data = mapOf(
-                    "reason" to reason,
-                    "error" to e.message.toString()
-                )
-            )
+            trackOptimization("wake_lock_failed", applied = false)
             sendDebugLog("Wake lock acquisition failed: ${e.message}")
         }
     }
@@ -758,28 +633,15 @@ class BatteryPowerManager(
                     
                     lock.release()
                     
-                    batteryOptimizationLogger.logOptimization(
-                        category = BatteryOptimizationLogger.LogCategory.WAKE_LOCK,
-                        message = "Wake lock released",
-                        data = mapOf(
-                            "reason" to wakeLockReason,
-                            "held_duration_ms" to heldDuration,
-                            "was_timeout" to (heldDuration >= wakeLockTimeoutMs)
-                        )
-                    )
+                    trackOptimization("wake_lock_released")
                     
                     sendDebugLog("Wake lock released: $wakeLockReason (held ${heldDuration}ms)")
                     
                     // Track wake lock effectiveness
                     val wasEffective = heldDuration < wakeLockTimeoutMs
-                    batteryMetricsCollector.trackNetworkActivity("wake_lock_released", optimized = wasEffective)
+                    metricsCollector.trackWakeLockUsage(acquired = false, optimized = wasEffective)
                 } catch (e: Exception) {
-                    batteryOptimizationLogger.logOptimization(
-                        category = BatteryOptimizationLogger.LogCategory.WAKE_LOCK,
-                        level = BatteryOptimizationLogger.LogLevel.WARN,
-                        message = "Error releasing wake lock",
-                        data = mapOf("error" to e.message.toString())
-                    )
+                    trackOptimization("wake_lock_release_error", applied = false)
                     sendDebugLog("Wake lock release error: ${e.message}")
                 }
             }
@@ -795,6 +657,111 @@ class BatteryPowerManager(
      */
     fun isWakeLockHeld(): Boolean {
         return wakeLock?.isHeld == true
+    }
+    
+    // === SMART WAKE LOCK MANAGEMENT (NEW BATTERY OPTIMIZATION) ===
+    
+    enum class WakeLockImportance {
+        CRITICAL,  // Connection establishment, critical operations
+        HIGH,      // Subscription management, important network operations
+        NORMAL,    // Regular health checks, routine operations
+        LOW        // Background maintenance, optional operations
+    }
+    
+    /**
+     * SMART wake lock acquisition that considers battery level and operation importance
+     * BREAKING CHANGE: Replaces simple acquireWakeLock with intelligent decision making
+     */
+    fun acquireSmartWakeLock(
+        operation: String, 
+        estimatedDuration: Long, 
+        importance: WakeLockImportance = WakeLockImportance.NORMAL
+    ): Boolean {
+        val batteryLevel = getCurrentBatteryLevel()
+        val isCharging = isCharging()
+        val networkQuality = getNetworkQuality()
+        
+        // SMART decision matrix for wake lock acquisition
+        val shouldAcquire = when (importance) {
+            WakeLockImportance.CRITICAL -> true  // Always acquire for critical operations
+            WakeLockImportance.HIGH -> {
+                // Acquire unless battery is critically low and not charging
+                !(batteryLevel <= 10 && !isCharging)
+            }
+            WakeLockImportance.NORMAL -> {
+                when {
+                    isCharging -> true  // Always acquire when charging
+                    batteryLevel <= 15 -> estimatedDuration > 10000  // Only for longer operations on critical battery
+                    batteryLevel <= 30 -> estimatedDuration > 5000   // Only for medium+ operations on low battery
+                    else -> true  // Acquire normally with good battery
+                }
+            }
+            WakeLockImportance.LOW -> {
+                when {
+                    isCharging -> true
+                    batteryLevel <= 30 -> false  // Skip on low battery
+                    networkQuality == "low" -> false  // Skip on poor network
+                    else -> estimatedDuration > 3000  // Only for longer operations
+                }
+            }
+        }
+        
+        if (!shouldAcquire) {
+            trackOptimization("wake_lock_skipped", applied = true)
+            metricsCollector.trackWakeLockUsage(acquired = false, optimized = true)
+            sendDebugLog("⏸️ Wake lock skipped: $operation (${importance.name}, ${batteryLevel}%, battery optimization)")
+            return false
+        }
+        
+        // Calculate SMART timeout based on conditions
+        val smartTimeout = calculateSmartTimeout(estimatedDuration, batteryLevel, isCharging)
+        
+        // Use existing wake lock acquisition with smart timeout
+        acquireWakeLock(operation, smartTimeout)
+        
+        trackOptimization("smart_wake_lock_acquired")
+        metricsCollector.trackWakeLockUsage(acquired = true, optimized = true)
+        
+        sendDebugLog("🔒 Smart wake lock acquired: $operation (${importance.name}, ${smartTimeout}ms timeout)")
+        return true
+    }
+    
+    /**
+     * Calculate smart wake lock timeout based on battery and charging conditions
+     */
+    private fun calculateSmartTimeout(estimatedDuration: Long, batteryLevel: Int, isCharging: Boolean): Long {
+        val baseTimeout = if (isCharging) {
+            estimatedDuration * 2  // More generous when charging
+        } else {
+            when {
+                batteryLevel <= 15 -> minOf(estimatedDuration, 10000L)  // Max 10s on critical battery
+                batteryLevel <= 30 -> minOf(estimatedDuration * 1.2.toLong(), 20000L)  // Max 20s on low battery
+                else -> estimatedDuration * 1.5.toLong()  // Normal timeout with buffer
+            }
+        }
+        
+        // Ensure minimum and maximum bounds
+        return maxOf(5000L, minOf(baseTimeout, wakeLockTimeoutMs))
+    }
+    
+    /**
+     * Get current network quality for wake lock decisions
+     */
+    private fun getNetworkQuality(): String {
+        return try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val activeNetwork = connectivityManager.activeNetwork
+            val networkCapabilities = activeNetwork?.let { connectivityManager.getNetworkCapabilities(it) }
+            
+            when {
+                networkCapabilities == null -> "none"
+                networkCapabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "high"
+                networkCapabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "medium"
+                else -> "low"
+            }
+        } catch (e: Exception) {
+            "unknown"
+        }
     }
     
     /**
@@ -825,16 +792,7 @@ class BatteryPowerManager(
             
             sendDebugLog("Ping interval updated due to battery mode change: ${oldInterval}s → ${newInterval}s")
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
-                message = "Battery mode changed by user",
-                data = mapOf(
-                    "new_mode" to newMode.displayName,
-                    "old_ping_interval" to "${oldInterval}s",
-                    "new_ping_interval" to "${newInterval}s",
-                    "app_state" to currentAppState.name
-                )
-            )
+            trackOptimization("battery_mode_changed")
         }
     }
     

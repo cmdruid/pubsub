@@ -25,6 +25,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.cmdruid.pubsub.data.BatteryMode
@@ -33,6 +36,7 @@ import com.cmdruid.pubsub.data.ConfigurationManager
 import com.cmdruid.pubsub.data.NotificationFrequency
 import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.databinding.ActivityMainBinding
+import com.cmdruid.pubsub.service.MetricsReader
 import com.cmdruid.pubsub.service.PubSubService
 import com.cmdruid.pubsub.ui.adapters.ConfigurationAdapter
 import com.cmdruid.pubsub.ui.adapters.DebugLogAdapter
@@ -57,7 +61,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     private lateinit var configurationAdapter: ConfigurationAdapter
     private lateinit var debugLogAdapter: DebugLogAdapter
     private lateinit var unifiedLogger: UnifiedLogger
+    private lateinit var metricsReader: MetricsReader
     private var currentLogFilter = LogFilter.DEFAULT
+    private var metricsUpdateJob: Job? = null
     
     // Battery optimization: Lifecycle state tracking
     private var appResumedTime: Long = 0
@@ -76,6 +82,14 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     ) { uri ->
         uri?.let { 
             exportDebugLogsToFile(it)
+        }
+    }
+    
+    private val exportMetricsLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { 
+            exportMetricsToFile(it)
         }
     }
     
@@ -114,6 +128,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         configurationManager = ConfigurationManager(this)
         settingsManager = SettingsManager(this)
         unifiedLogger = UnifiedLoggerImpl(this, configurationManager)
+        metricsReader = MetricsReader(this, settingsManager)
         
         // Load saved filter preferences
         currentLogFilter = settingsManager.getLogFilter()
@@ -124,6 +139,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         setupToolbar()
         setupConfigurationsRecyclerView()
         setupDebugLogsRecyclerView()
+        setupMetricsCard()
         setupUI()
         requestNotificationPermission()
         updateServiceStatus()
@@ -151,6 +167,10 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         super.onDestroy()
         unregisterReceiver(debugLogReceiver)
         settingsManager.removeSettingsChangeListener(this)
+        
+        // Clean up metrics updates and manager
+        stopMetricsUpdates()
+        metricsReader.cleanup()
     }
     
     override fun onNewIntent(intent: Intent?) {
@@ -255,6 +275,15 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 CoroutineScope(Dispatchers.IO).launch {
                     configurationManager.clearStructuredLogs()
                 }
+            }
+            
+            // Metrics card button handlers
+            saveMetricsButton.setOnClickListener {
+                saveMetricsData()
+            }
+            
+            clearMetricsButton.setOnClickListener {
+                clearMetricsData()
             }
             
             // Add sample deep link generation for testing (long press on clear logs button)
@@ -440,6 +469,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     override fun onResume() {
         super.onResume()
         
+        // IMPORTANT: Invalidate settings cache to pick up changes from settings screen
+        settingsManager.invalidateCache()
+        
         // Battery optimization: Track app resume time and send state change
         val currentTime = System.currentTimeMillis()
         val backgroundDuration = if (appPausedTime > 0) currentTime - appPausedTime else 0L
@@ -458,6 +490,10 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         refreshConfigurations()
         // Load debug logs asynchronously to avoid blocking UI on resume
         loadDebugLogsAsync()
+        
+        // Update card visibility (in case settings changed)
+        updateDebugConsoleVisibility()
+        updateMetricsCardVisibility()
     }
     
     override fun onPause() {
@@ -735,6 +771,207 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "Error exporting debug logs: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    
+    /**
+     * Setup metrics card functionality
+     */
+    private fun setupMetricsCard() {
+        // Show/hide metrics card based on settings
+        updateMetricsCardVisibility()
+        
+        // Start metrics updates if enabled
+        if (settingsManager.isMetricsCollectionActive()) {
+            startMetricsUpdates()
+        }
+    }
+    
+    /**
+     * Update metrics card visibility based on settings
+     */
+    private fun updateMetricsCardVisibility() {
+        val isEnabled = settingsManager.isMetricsCollectionActive()
+        binding.metricsCard.visibility = if (isEnabled) View.VISIBLE else View.GONE
+        
+        if (!isEnabled) {
+            // Stop updates when disabled
+            stopMetricsUpdates()
+        } else {
+            // Start updates when enabled
+            startMetricsUpdates()
+        }
+    }
+    
+    /**
+     * Start periodic metrics updates (non-blocking)
+     */
+    private fun startMetricsUpdates() {
+        // Cancel any existing job
+        metricsUpdateJob?.cancel()
+        
+        metricsUpdateJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive && settingsManager.isMetricsCollectionActive()) {
+                try {
+                    updateMetricsDisplay()
+                    delay(5000) // Update every 5 seconds
+                } catch (e: Exception) {
+                    // Silently handle errors to avoid disrupting UI
+                    delay(10000) // Wait longer on error
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop metrics updates
+     */
+    private fun stopMetricsUpdates() {
+        metricsUpdateJob?.cancel()
+        metricsUpdateJob = null
+    }
+    
+    /**
+     * Update metrics display (runs in background, updates UI on main thread)
+     */
+    private suspend fun updateMetricsDisplay() = withContext(Dispatchers.IO) {
+        // Generate report in background thread
+        val report = metricsReader.generateMetricsReport()
+        
+        // Update UI on main thread
+        withContext(Dispatchers.Main) {
+            report?.let { updateMetricsUI(it) }
+        }
+    }
+    
+    /**
+     * Update metrics UI elements (main thread only)
+     */
+    private fun updateMetricsUI(report: MetricsReader.MetricsReport) {
+        try {
+            // Update battery metrics
+            report.batteryReport?.let { battery ->
+                binding.batteryOptimizationsText.text = 
+                    "${battery.optimizationsApplied} / ${battery.batteryChecks} (${String.format("%.1f", battery.optimizationRate)}%)"
+            } ?: run {
+                binding.batteryOptimizationsText.text = "-- / -- (---%)"
+            }
+            
+            // Update connection metrics
+            report.connectionReport?.let { connection ->
+                binding.connectionSuccessText.text = 
+                    "${connection.successfulConnections} / ${connection.connectionAttempts} (${String.format("%.1f", connection.connectionSuccessRate)}%)"
+            } ?: run {
+                binding.connectionSuccessText.text = "-- / -- (---%)"
+            }
+            
+            // Update duplicate event metrics
+            report.duplicateEventReport?.let { duplicate ->
+                binding.duplicatesPreventedText.text = 
+                    "${duplicate.duplicatesPrevented} / ${duplicate.duplicatesDetected} (${String.format("%.1f", duplicate.preventionRate)}%)"
+                
+                // Format network data saved
+                val dataSavedKB = duplicate.networkDataSavedBytes / 1024.0
+                binding.networkDataSavedText.text = when {
+                    dataSavedKB >= 1024 -> "${String.format("%.1f", dataSavedKB / 1024)} MB"
+                    dataSavedKB >= 1 -> "${String.format("%.1f", dataSavedKB)} KB"
+                    else -> "${duplicate.networkDataSavedBytes} B"
+                }
+            } ?: run {
+                binding.duplicatesPreventedText.text = "-- / -- (---%)"
+                binding.networkDataSavedText.text = "-- KB"
+            }
+            
+        } catch (e: Exception) {
+            // Silently handle UI update errors
+            unifiedLogger.warn(LogDomain.UI, "Error updating metrics UI: ${e.message}")
+        }
+    }
+    
+    /**
+     * Save metrics data to file
+     */
+    private fun saveMetricsData() {
+        if (!settingsManager.isMetricsCollectionActive()) {
+            Toast.makeText(this, "Metrics are disabled", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val filename = "pubsub_metrics_$timestamp.json"
+        exportMetricsLauncher.launch(filename)
+    }
+    
+    /**
+     * Clear all metrics data
+     */
+    private fun clearMetricsData() {
+        if (!settingsManager.isMetricsCollectionActive()) {
+            Toast.makeText(this, "Metrics are disabled", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("Clear Metrics Data")
+            .setMessage("This will delete all collected performance metrics. This action cannot be undone.")
+            .setPositiveButton("Clear") { _, _ ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    metricsReader.clearAllData()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "All metrics data cleared", Toast.LENGTH_SHORT).show()
+                        // Reset UI to show empty state
+                        updateMetricsUI(MetricsReader.MetricsReport(
+                            generatedAt = System.currentTimeMillis(),
+                            generationTimeMs = 0,
+                            batteryReport = null,
+                            connectionReport = null,
+                            duplicateEventReport = null
+                        ))
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    /**
+     * Export metrics to file
+     */
+    private fun exportMetricsToFile(uri: android.net.Uri) {
+        if (!settingsManager.isMetricsCollectionActive()) {
+            Toast.makeText(this, "Metrics are disabled", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val report = metricsReader.generateMetricsReport()
+                if (report == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "No metrics data to export", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+                
+                val metricsJson = com.google.gson.Gson().toJson(report)
+                
+                contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(metricsJson.toByteArray())
+                    outputStream.flush()
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Metrics data exported successfully", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: IOException) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Failed to export metrics: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Error exporting metrics: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

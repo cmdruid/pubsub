@@ -17,9 +17,7 @@ import kotlinx.coroutines.launch
  */
 class NetworkManager(
     private val context: Context,
-    private val batteryOptimizationLogger: BatteryOptimizationLogger,
-    private val networkOptimizationLogger: NetworkOptimizationLogger,
-    private val batteryMetricsCollector: BatteryMetricsCollector,
+    private val metricsCollector: MetricsCollector,
     private val onNetworkStateChange: (Boolean, String, String) -> Unit,
     private val onRefreshConnections: () -> Unit,
     private val sendDebugLog: (String) -> Unit
@@ -96,24 +94,11 @@ class NetworkManager(
         try {
             connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.NETWORK_STATE,
-                message = "Network monitoring initialized",
-                data = mapOf(
-                    "network_available" to isNetworkAvailable,
-                    "network_type" to currentNetworkType,
-                    "network_quality" to networkQuality
-                )
-            )
+            metricsCollector.trackConnectionEvent("network_monitoring_initialized", "network_manager", true)
             
             sendDebugLog("Network monitoring setup: $currentNetworkType, available: $isNetworkAvailable")
         } catch (e: Exception) {
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.NETWORK_STATE,
-                level = BatteryOptimizationLogger.LogLevel.ERROR,
-                message = "Failed to setup network monitoring",
-                data = mapOf("error" to e.message.toString())
-            )
+            metricsCollector.trackConnectionEvent("network_monitoring_failed", "network_manager", false)
             sendDebugLog("Network monitoring setup failed: ${e.message}")
         }
     }
@@ -138,38 +123,20 @@ class NetworkManager(
             currentNetworkType = newNetworkType
             networkQuality = newNetworkQuality
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.NETWORK_STATE,
-                message = "Network state changed",
-                data = mapOf(
-                    "available" to available,
-                    "network_type" to currentNetworkType,
-                    "quality" to networkQuality,
-                    "down_time_ms" to networkDownTime
-                )
-            )
+            metricsCollector.trackConnectionEvent("network_optimization", "network_manager", true) // Was: batteryOptimizationLogger.logOptimization(
+
             
             val statusEmoji = if (available) "✅" else "❌"
             sendDebugLog("$statusEmoji Network: $currentNetworkType, quality: $networkQuality")
             
             // Log network state change for monitoring
-            networkOptimizationLogger.logNetworkStateChange(
-                networkType = currentNetworkType,
-                networkQuality = networkQuality,
-                connectionCount = 0, // This will need to be passed from the service
-                batteryLevel = batteryOptimizationLogger.getBatteryLevel(),
-                appState = "unknown", // This will need to be passed from the service
-                details = mapOf(
-                    "previous_type" to (if (previousState != available) "connection_change" else "type_change"),
-                    "down_time_ms" to networkDownTime
-                )
-            )
+            metricsCollector.trackConnectionEvent("network_state_change", "network_manager", true)
             
             // Handle network-aware reconnection logic
             handleNetworkAwareReconnection(available, networkDownTime)
             
             // Track network activity for metrics
-            batteryMetricsCollector.trackNetworkActivity("state_change", optimized = true)
+            metricsCollector.trackConnectionEvent("network_state_change", "network_manager", true)
             
             // Notify service of the change
             onNetworkStateChange(available, currentNetworkType, networkQuality)
@@ -190,16 +157,8 @@ class NetworkManager(
             currentNetworkType = newNetworkType
             networkQuality = newNetworkQuality
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.NETWORK_STATE,
-                message = "Network capabilities changed",
-                data = mapOf(
-                    "old_type" to oldType,
-                    "new_type" to currentNetworkType,
-                    "old_quality" to oldQuality,
-                    "new_quality" to networkQuality
-                )
-            )
+            metricsCollector.trackConnectionEvent("network_optimization", "network_manager", true) // Was: batteryOptimizationLogger.logOptimization(
+
             
             sendDebugLog("Network capabilities: $oldType → $currentNetworkType, quality: $oldQuality → $networkQuality")
             
@@ -251,15 +210,8 @@ class NetworkManager(
             // Network came back online - consider reconnecting
             val shouldReconnect = downTime > 5000L // Only if offline for more than 5 seconds
             
-            batteryOptimizationLogger.logOptimization(
-                category = BatteryOptimizationLogger.LogCategory.CONNECTION_HEALTH,
-                message = "Network-aware reconnection decision",
-                data = mapOf(
-                    "should_reconnect" to shouldReconnect,
-                    "down_time_ms" to downTime,
-                    "active_connections" to 0 // This will need to be passed from the service
-                )
-            )
+            metricsCollector.trackConnectionEvent("network_optimization", "network_manager", true) // Was: batteryOptimizationLogger.logOptimization(
+
             
             if (shouldReconnect) {
                 sendDebugLog("Network restored, refreshing connections (offline for ${downTime}ms)")
@@ -288,14 +240,7 @@ class NetworkManager(
             else -> 1.0
         }
         
-        batteryOptimizationLogger.logOptimization(
-            category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
-            message = "Network quality adjustment",
-            data = mapOf(
-                "quality" to quality,
-                "multiplier" to qualityMultiplier
-            )
-        )
+        metricsCollector.trackConnectionEvent("network_quality_adjustment", "network_manager", qualityMultiplier != 1.0)
         
         if (qualityMultiplier != 1.0) {
             sendDebugLog("Adjusting optimization for $quality network quality (${qualityMultiplier}x)")

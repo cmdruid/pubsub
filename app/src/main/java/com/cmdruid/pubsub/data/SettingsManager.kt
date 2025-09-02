@@ -2,17 +2,19 @@ package com.cmdruid.pubsub.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.cmdruid.pubsub.logging.LogFilter
 import com.cmdruid.pubsub.logging.LogType
 import com.cmdruid.pubsub.logging.LogDomain
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import java.io.File
 
 /**
  * Manages app settings using SharedPreferences with JSON serialization
  * Follows the same pattern as ConfigurationManager for consistency
  */
-class SettingsManager(context: Context) {
+class SettingsManager(private val context: Context) {
     
     companion object {
         private const val PREFS_NAME = "pubsub_app_settings"
@@ -241,5 +243,80 @@ class SettingsManager(context: Context) {
             // Return default filter if loading fails
             LogFilter.DEFAULT
         }
+    }
+    
+    /**
+     * Get current performance metrics settings
+     */
+    fun getPerformanceMetricsSettings(): PerformanceMetricsSettings {
+        return getSettings().performanceMetrics
+    }
+    
+    /**
+     * Simple toggle for metrics on/off with data cleanup when disabled
+     */
+    fun setPerformanceMetricsEnabled(enabled: Boolean) {
+        val currentSettings = getSettings()
+        val newMetricsSettings = PerformanceMetricsSettings(enabled = enabled)
+        saveSettingsWithNotification(currentSettings.copy(performanceMetrics = newMetricsSettings))
+        
+        // PRIVACY: When disabling metrics, delete all stored metrics data
+        if (!enabled) {
+            clearAllMetricsData()
+        }
+    }
+    
+    /**
+     * Clear all stored metrics data from device storage
+     */
+    private fun clearAllMetricsData() {
+        try {
+            // Clear metrics-related SharedPreferences
+            val metricsPrefs = context.getSharedPreferences("metrics_data", Context.MODE_PRIVATE)
+            metricsPrefs.edit().clear().apply()
+            
+            val conditionalMetricsPrefs = context.getSharedPreferences("conditional_metrics", Context.MODE_PRIVATE)
+            conditionalMetricsPrefs.edit().clear().apply()
+            
+            // Clear any cached metrics files
+            val metricsDir = File(context.cacheDir, "metrics")
+            if (metricsDir.exists()) {
+                metricsDir.deleteRecursively()
+            }
+            
+            val performanceMetricsDir = File(context.cacheDir, "performance_metrics")
+            if (performanceMetricsDir.exists()) {
+                performanceMetricsDir.deleteRecursively()
+            }
+            
+            // Clear any temporary metrics logs
+            val logFiles = context.filesDir.listFiles { file -> 
+                file.name.startsWith("metrics_") || 
+                file.name.contains("_metrics_") ||
+                file.name.contains("performance") ||
+                file.name.contains("battery_optimization") ||
+                file.name.contains("network_optimization")
+            }
+            logFiles?.forEach { it.delete() }
+            
+            Log.i("SettingsManager", "All metrics data cleared from device storage")
+        } catch (e: Exception) {
+            Log.w("SettingsManager", "Failed to clear some metrics data: ${e.message}")
+        }
+    }
+    
+    /**
+     * Check if metrics collection should be active (fast check)
+     */
+    fun isMetricsCollectionActive(): Boolean {
+        return getPerformanceMetricsSettings().enabled
+    }
+    
+    /**
+     * Invalidate cached settings to force reload from storage
+     * Call this when returning from settings screen
+     */
+    fun invalidateCache() {
+        cachedSettings = null
     }
 }
