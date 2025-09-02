@@ -13,6 +13,7 @@ import android.util.Log
 import com.cmdruid.pubsub.data.ConfigurationManager
 import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.ui.MainActivity
+import com.cmdruid.pubsub.logging.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,7 @@ class PubSubService : Service() {
     private lateinit var batteryOptimizationLogger: BatteryOptimizationLogger
     private lateinit var batteryMetricsCollector: BatteryMetricsCollector
     private lateinit var networkOptimizationLogger: NetworkOptimizationLogger
+    private lateinit var unifiedLogger: UnifiedLogger
     private var serviceJob: Job? = null
     private var healthMonitorJob: Job? = null
     
@@ -101,6 +103,7 @@ class PubSubService : Service() {
         super.onCreate()
         configurationManager = ConfigurationManager(this)
         settingsManager = SettingsManager(this)
+        unifiedLogger = UnifiedLoggerImpl(this, configurationManager)
         batteryOptimizationLogger = BatteryOptimizationLogger(this)
         batteryMetricsCollector = BatteryMetricsCollector(this)
         networkOptimizationLogger = NetworkOptimizationLogger(this)
@@ -119,7 +122,7 @@ class PubSubService : Service() {
             registerReceiver(appStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         }
         
-        sendDebugLog("⚡ Service created")
+        unifiedLogger.info(LogDomain.SERVICE, "Service created")
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -127,28 +130,28 @@ class PubSubService : Service() {
         
         when (action) {
             "REFRESH_CONNECTIONS" -> {
-                sendDebugLog("🔄 Connection refresh requested")
+                unifiedLogger.info(LogDomain.NETWORK, "Connection refresh requested")
                 webSocketConnectionManager.refreshConnections()
                 return START_STICKY
             }
             "SYNC_CONFIGURATIONS" -> {
-                sendDebugLog("🔄 Configuration sync requested")
+                unifiedLogger.info(LogDomain.SERVICE, "Configuration sync requested")
                 webSocketConnectionManager.syncConfigurations()
                 updateForegroundNotification()
                 return START_STICKY
             }
             "TEST_CONNECTION_HEALTH" -> {
-                sendDebugLog("🧪 Manual connection health test requested")
+                unifiedLogger.debug(LogDomain.HEALTH, "Manual connection health test requested")
                 connectionHealthTester.testConnectionHealth()
                 return START_STICKY
             }
             "FORCE_RECONNECT_ALL" -> {
-                sendDebugLog("🧪 Force reconnect all connections requested")
+                unifiedLogger.debug(LogDomain.HEALTH, "Force reconnect all connections requested")
                 connectionHealthTester.forceReconnectAll()
                 return START_STICKY
             }
             "LOG_DETAILED_STATS" -> {
-                sendDebugLog("🧪 Detailed stats logging requested")
+                unifiedLogger.debug(LogDomain.SYSTEM, "Detailed stats logging requested")
                 connectionHealthTester.logDetailedConnectionStats(
                     batteryPowerManager.getCurrentAppState(), 
                     batteryPowerManager.getCurrentPingInterval(), 
@@ -161,7 +164,7 @@ class PubSubService : Service() {
                 return START_STICKY
             }
             else -> {
-                sendDebugLog("🚀 Service started")
+                unifiedLogger.info(LogDomain.SERVICE, "Service started")
                 startForeground(NOTIFICATION_ID, createForegroundNotification())
             }
         }
@@ -179,7 +182,7 @@ class PubSubService : Service() {
                 // Log initial stats
                 logServiceStats()
             } catch (e: Exception) {
-                sendDebugLog("❌ Service startup error: ${e.message}")
+                unifiedLogger.error(LogDomain.SERVICE, "Service startup error: ${e.message}")
                 Log.e(TAG, "Service startup failed", e)
             }
         }
@@ -188,7 +191,7 @@ class PubSubService : Service() {
     }
     
     override fun onDestroy() {
-        sendDebugLog("🛑 Service destroyed")
+        unifiedLogger.info(LogDomain.SERVICE, "Service destroyed")
         
         serviceJob?.cancel()
         healthMonitorJob?.cancel()
@@ -233,7 +236,7 @@ class PubSubService : Service() {
                 // Update WebSocket client when ping interval changes
                 webSocketConnectionManager.updateOkHttpClient()
             },
-            sendDebugLog = { message -> sendDebugLog(message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.BATTERY, message) }
         )
         
         // Initialize network management
@@ -251,14 +254,15 @@ class PubSubService : Service() {
             onRefreshConnections = {
                 webSocketConnectionManager.refreshConnections()
             },
-            sendDebugLog = { message -> sendDebugLog(message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NETWORK, message) }
         )
         
         // Initialize event notification management
         eventNotificationManager = EventNotificationManager(
             context = this,
             settingsManager = settingsManager,
-            sendDebugLog = { message -> sendDebugLog(message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NOTIFICATION, message) },
+            unifiedLogger = unifiedLogger
         )
         
         // Initialize WebSocket connection management
@@ -273,7 +277,7 @@ class PubSubService : Service() {
             onMessageReceived = { messageText, configuration, relayUrl ->
                 messageHandler.handleWebSocketMessage(messageText, configuration, relayUrl)
             },
-            sendDebugLog = { message -> sendDebugLog(message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NETWORK, message) }
         )
         
         // Initialize message handler
@@ -283,7 +287,8 @@ class PubSubService : Service() {
             eventCache = eventCache,
             eventNotificationManager = eventNotificationManager,
             relayConnections = webSocketConnectionManager.getRelayConnections(),
-            sendDebugLog = { message -> sendDebugLog(message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.EVENT, message) },
+            unifiedLogger = unifiedLogger
         )
         
         // Initialize connection health tester
@@ -298,7 +303,7 @@ class PubSubService : Service() {
                 webSocketConnectionManager.connectToRelay(relayUrl, configuration) 
             },
             logServiceStats = { logServiceStats() },
-            sendDebugLog = { message -> sendDebugLog(message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.HEALTH, message) }
         )
         
         // Initialize all components
@@ -336,7 +341,7 @@ class PubSubService : Service() {
         val notification = createForegroundNotification()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         notificationManager.notify(NOTIFICATION_ID, notification)
-        sendDebugLog("🔔 Updated foreground notification with current subscription count")
+        unifiedLogger.info(LogDomain.NOTIFICATION, "Updated foreground notification with current subscription count")
     }
     
     /**
@@ -349,7 +354,7 @@ class PubSubService : Service() {
             .toSet()
         
         subscriptionManager.cleanupOrphanedSubscriptions(validConfigurationIds)
-        sendDebugLog("🧹 Cleaned up orphaned subscriptions")
+        unifiedLogger.info(LogDomain.SUBSCRIPTION, "Cleaned up orphaned subscriptions")
     }
     
     /**
@@ -360,28 +365,33 @@ class PubSubService : Service() {
         val cacheStats = eventCache.getStats()
         val currentTime = System.currentTimeMillis()
         
-        sendDebugLog("📊 Service Stats:")
-        sendDebugLog("   🔗 Relay connections: ${webSocketConnectionManager.getRelayConnections().size}")
-        sendDebugLog("   📋 Active subscriptions: ${subscriptionStats.activeCount}")
-        sendDebugLog("   💾 Event cache: ${cacheStats}")
-        sendDebugLog("   🔋 App state: ${batteryPowerManager.getCurrentAppState().name} (ping: ${batteryPowerManager.getCurrentPingInterval()}s)")
-        sendDebugLog("   🌐 Network: ${networkManager.getCurrentNetworkType()} (available: ${networkManager.isNetworkAvailable()})")
-        sendDebugLog("   🔋 Battery: ${batteryPowerManager.getCurrentBatteryLevel()}% (charging: ${batteryPowerManager.isCharging()})")
+        unifiedLogger.info(LogDomain.SYSTEM, "Service Stats", mapOf(
+            "relay_connections" to webSocketConnectionManager.getRelayConnections().size,
+            "active_subscriptions" to subscriptionStats.activeCount,
+            "event_cache" to cacheStats,
+            "app_state" to batteryPowerManager.getCurrentAppState().name,
+            "ping_interval" to "${batteryPowerManager.getCurrentPingInterval()}s",
+            "network_type" to networkManager.getCurrentNetworkType(),
+            "network_available" to networkManager.isNetworkAvailable(),
+            "battery_level" to "${batteryPowerManager.getCurrentBatteryLevel()}%",
+            "charging" to batteryPowerManager.isCharging()
+        ))
         
         // Enhanced connection diagnostics
-        sendDebugLog("🔍 Connection Details:")
         webSocketConnectionManager.getRelayConnections().forEach { (relayUrl, connection) ->
             val shortUrl = relayUrl.substringAfter("://").take(20)
             val timeSinceLastMessage = currentTime - connection.lastMessageTime
             val timeSinceLastPing = if (connection.lastPingTime > 0) currentTime - connection.lastPingTime else -1
             val timeSinceSubscription = if (connection.subscriptionSentTime > 0) currentTime - connection.subscriptionSentTime else -1
             
-            sendDebugLog("   📡 $shortUrl:")
-            sendDebugLog("      WebSocket: ${if (connection.webSocket != null) "✅" else "❌"}")
-            sendDebugLog("      Subscription: ${if (connection.subscriptionConfirmed) "✅ confirmed" else "⏳ pending"}")
-            sendDebugLog("      Last message: ${if (timeSinceLastMessage < 60000) "${timeSinceLastMessage / 1000}s" else "${timeSinceLastMessage / 60000}min"} ago")
-            sendDebugLog("      Last ping: ${if (timeSinceLastPing >= 0) "${timeSinceLastPing / 1000}s ago" else "never"}")
-            sendDebugLog("      Reconnect attempts: ${connection.reconnectAttempts}")
+            unifiedLogger.debug(LogDomain.RELAY, "Connection details: $shortUrl", mapOf(
+                "websocket_connected" to (connection.webSocket != null),
+                "subscription_confirmed" to connection.subscriptionConfirmed,
+                "last_message_ago_ms" to timeSinceLastMessage,
+                "last_ping_ago_ms" to timeSinceLastPing,
+                "reconnect_attempts" to connection.reconnectAttempts,
+                "subscription_sent_ago_ms" to timeSinceSubscription
+            ))
         }
         
         // Update battery metrics and log effectiveness
@@ -403,7 +413,7 @@ class PubSubService : Service() {
                     val checkIntervalMs = (batteryPowerManager.getCurrentPingInterval() * 1000 * 1.5).toLong() // 1.5x ping interval
                     delay(checkIntervalMs)
                     
-                    sendDebugLog("🩺 Periodic health check starting...")
+                    unifiedLogger.debug(LogDomain.HEALTH, "Periodic health check starting...")
                     
                     val currentTime = System.currentTimeMillis()
                     val staleConnections = mutableListOf<String>()
@@ -414,33 +424,33 @@ class PubSubService : Service() {
                         val maxSilenceMs = (batteryPowerManager.getCurrentPingInterval() * 1000 * 2.5).toLong() // 2.5x ping interval
                         
                         if (webSocket == null) {
-                            sendDebugLog("🩺 $relayUrl: No WebSocket - marking stale")
+                            unifiedLogger.warn(LogDomain.HEALTH, "$relayUrl: No WebSocket - marking stale")
                             staleConnections.add(relayUrl)
                         } else if (timeSinceLastMessage > maxSilenceMs) {
-                            sendDebugLog("🩺 $relayUrl: Silent for ${timeSinceLastMessage / 1000}s - checking health")
+                            unifiedLogger.debug(LogDomain.HEALTH, "$relayUrl: Silent for ${timeSinceLastMessage / 1000}s - checking health")
                             if (!webSocketConnectionManager.isWebSocketHealthy(webSocket, relayUrl)) {
-                                sendDebugLog("🩺 $relayUrl: Health check failed - marking stale")
+                                unifiedLogger.warn(LogDomain.HEALTH, "$relayUrl: Health check failed - marking stale")
                                 staleConnections.add(relayUrl)
                             }
                         } else {
-                            sendDebugLog("🩺 $relayUrl: Healthy (last message ${timeSinceLastMessage / 1000}s ago)")
+                            unifiedLogger.debug(LogDomain.HEALTH, "$relayUrl: Healthy (last message ${timeSinceLastMessage / 1000}s ago)")
                         }
                     }
                     
                     // Trigger reconnection for stale connections
                     if (staleConnections.isNotEmpty()) {
-                        sendDebugLog("🩺 Health check found ${staleConnections.size} stale connections - triggering refresh")
+                        unifiedLogger.warn(LogDomain.HEALTH, "Health check found ${staleConnections.size} stale connections - triggering refresh")
                         webSocketConnectionManager.refreshConnections()
                     } else {
-                        sendDebugLog("🩺 Health check complete - all connections healthy")
+                        unifiedLogger.debug(LogDomain.HEALTH, "Health check complete - all connections healthy")
                     }
                     
                 } catch (e: CancellationException) {
                     // Expected when the coroutine is cancelled - don't log as an error
-                    sendDebugLog("🩺 Health monitor stopped (service shutting down)")
+                    unifiedLogger.info(LogDomain.HEALTH, "Health monitor stopped (service shutting down)")
                     throw e // Re-throw to properly cancel the coroutine
                 } catch (e: Exception) {
-                    sendDebugLog("🩺 Health monitor error: ${e.message}")
+                    unifiedLogger.error(LogDomain.HEALTH, "Health monitor error: ${e.message}")
                 }
             }
         }
@@ -453,11 +463,12 @@ class PubSubService : Service() {
         try {
             val report = batteryMetricsCollector.generateOptimizationReport()
             
-            sendDebugLog("🔋 Optimization Effectiveness: ${report.optimizationEffectiveness}")
-            sendDebugLog("   Ping frequency reduction: ${String.format(Locale.ROOT, "%.1f", report.pingFrequencyReduction)}%")
-            sendDebugLog("   Connection stability: ${String.format(Locale.ROOT, "%.1f", report.connectionStability)}%")
-            sendDebugLog("   Battery improvement: ${String.format(Locale.ROOT, "%.1f", report.batteryDrainImprovement)}%")
-            sendDebugLog("   Network activity reduction: ${String.format(Locale.ROOT, "%.1f", report.networkActivityReduction)}%")
+            unifiedLogger.info(LogDomain.BATTERY, "Optimization Effectiveness: ${report.optimizationEffectiveness}", mapOf(
+                "ping_frequency_reduction" to "${String.format(Locale.ROOT, "%.1f", report.pingFrequencyReduction)}%",
+                "connection_stability" to "${String.format(Locale.ROOT, "%.1f", report.connectionStability)}%",
+                "battery_improvement" to "${String.format(Locale.ROOT, "%.1f", report.batteryDrainImprovement)}%",
+                "network_activity_reduction" to "${String.format(Locale.ROOT, "%.1f", report.networkActivityReduction)}%"
+            ))
             
             // Log detailed metrics for analysis
             batteryOptimizationLogger.logOptimization(
@@ -474,24 +485,12 @@ class PubSubService : Service() {
                 )
             )
         } catch (e: Exception) {
-            sendDebugLog("❌ Error generating optimization effectiveness report: ${e.message}")
+            unifiedLogger.error(LogDomain.BATTERY, "Error generating optimization effectiveness report: ${e.message}")
             Log.e(TAG, "Battery optimization effectiveness report failed", e)
         }
     }
     
 
     
-    private fun sendDebugLog(message: String) {
-        Log.d(TAG, message)
-        
-        // Store in ConfigurationManager for persistent debug console
-        configurationManager.addDebugLog(message)
-        
-        // Send broadcast to MainActivity for real-time display
-        val intent = Intent(MainActivity.ACTION_DEBUG_LOG).apply {
-            putExtra(MainActivity.EXTRA_LOG_MESSAGE, message)
-            setPackage(packageName)
-        }
-        sendBroadcast(intent)
-    }
+
 }

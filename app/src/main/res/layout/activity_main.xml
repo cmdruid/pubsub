@@ -239,13 +239,22 @@
                             android:layout_marginStart="8dp">
 
                             <ImageButton
+                                android:id="@+id/filterLogsButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@android:drawable/ic_menu_sort_by_size"
+                                android:contentDescription="Filter debug logs"
+                                android:layout_marginEnd="8dp" />
+
+                            <ImageButton
                                 android:id="@+id/exportLogsButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:background="?attr/selectableItemBackgroundBorderless"
                                 android:src="@android:drawable/ic_menu_save"
                                 android:contentDescription="Export debug logs"
-                                android:layout_marginEnd="16dp" />
+                                android:layout_marginEnd="8dp" />
 
                             <ImageButton
                                 android:id="@+id/clearLogsButton"

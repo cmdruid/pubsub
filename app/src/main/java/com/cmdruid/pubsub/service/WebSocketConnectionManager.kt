@@ -85,7 +85,7 @@ class WebSocketConnectionManager(
             refreshConnections()
         }
         
-        sendDebugLog("🔋 OkHttp client updated with new ping interval: ${batteryPowerManager.getCurrentPingInterval()}s")
+        sendDebugLog("OkHttp client updated with new ping interval: ${batteryPowerManager.getCurrentPingInterval()}s")
     }
     
     /**
@@ -115,20 +115,20 @@ class WebSocketConnectionManager(
     suspend fun connectToAllRelays() {
         try {
             val configurations = configurationManager.getEnabledConfigurations()
-            sendDebugLog("🔌 Starting connections for ${configurations.size} subscription(s)")
+            sendDebugLog("Starting connections for ${configurations.size} subscription(s)")
             
             for (configuration in configurations) {
                 for (relayUrl in configuration.relayUrls) {
                     try {
                         connectToRelay(relayUrl, configuration)
                     } catch (e: Exception) {
-                        sendDebugLog("❌ Failed to connect to $relayUrl: ${e.message}")
+                        sendDebugLog("Failed to connect to $relayUrl: ${e.message}")
                         Log.e(TAG, "Connection failed for $relayUrl", e)
                     }
                 }
             }
         } catch (e: Exception) {
-            sendDebugLog("❌ Error in connectToAllRelays: ${e.message}")
+            sendDebugLog("Error in connectToAllRelays: ${e.message}")
             Log.e(TAG, "connectToAllRelays failed", e)
         }
     }
@@ -137,7 +137,7 @@ class WebSocketConnectionManager(
      * Connect to a specific relay
      */
     suspend fun connectToRelay(relayUrl: String, configuration: Configuration) {
-        sendDebugLog("🔌 Connecting: ${relayUrl.substringAfter("://").take(20)}... (${configuration.name})")
+        sendDebugLog("Connecting: ${relayUrl.substringAfter("://").take(20)}... (${configuration.name})")
         
         // Acquire wake lock for connection establishment
         batteryPowerManager.acquireWakeLock("connection_${relayUrl.substringAfter("://").take(10)}", 15000L)
@@ -151,7 +151,7 @@ class WebSocketConnectionManager(
         
         connection.webSocket = okHttpClient?.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                sendDebugLog("✅ Connected: ${relayUrl.substringAfter("://").take(20)}...")
+                sendDebugLog("Connected: ${relayUrl.substringAfter("://").take(20)}...")
                 connection.reconnectAttempts = 0
                 
                 // Release wake lock - connection established successfully
@@ -174,16 +174,16 @@ class WebSocketConnectionManager(
             }
             
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                sendDebugLog("⚠️ $relayUrl closing: $code - $reason")
+                sendDebugLog("$relayUrl closing: $code - $reason")
             }
             
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                sendDebugLog("📡 $relayUrl closed: $code - $reason")
+                sendDebugLog("$relayUrl closed: $code - $reason")
                 scheduleReconnect(connection, configuration)
             }
             
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                sendDebugLog("❌ $relayUrl failed: ${t.message}")
+                sendDebugLog("$relayUrl failed: ${t.message}")
                 
                 // Release wake lock - connection failed
                 batteryPowerManager.releaseWakeLock()
@@ -202,7 +202,7 @@ class WebSocketConnectionManager(
      */
     private fun subscribeToEvents(connection: PubSubService.RelayConnection, configuration: Configuration) {
         if (configuration.filter.isEmpty()) {
-            sendDebugLog("⚠️ No filter configured for ${configuration.name}, cannot subscribe")
+            sendDebugLog("No filter configured for ${configuration.name}, cannot subscribe")
             return
         }
         
@@ -220,10 +220,10 @@ class WebSocketConnectionManager(
                 // If last event was more than 2x the current ping interval ago, use safety buffer instead
                 // This handles cases where connection was down longer than expected
                 if (lastEventAge < batteryPowerManager.getCurrentPingInterval() * 2) {
-                    sendDebugLog("📋 Using stored timestamp (${lastEventAge}s ago)")
+                    sendDebugLog("Using stored timestamp (${lastEventAge}s ago)")
                     resubFilter
                 } else {
-                    sendDebugLog("📋 Stored timestamp too old (${lastEventAge}s), using safety buffer")
+                    sendDebugLog("Stored timestamp too old (${lastEventAge}s), using safety buffer")
                     createInitialFilter(configuration.filter)
                 }
             } else {
@@ -249,24 +249,24 @@ class WebSocketConnectionManager(
         
         val subscriptionMessage = NostrMessage.createSubscription(subscriptionId, filterToUse)
         
-        sendDebugLog("📋 Subscribing to ${connection.relayUrl} with filter: ${filterToUse.getSummary()}")
-        sendDebugLog("🆔 Subscription ID: $subscriptionId")
+        sendDebugLog("Subscribing to ${connection.relayUrl} with filter: ${filterToUse.getSummary()}")
+        sendDebugLog("Subscription ID: $subscriptionId")
         
         val success = connection.webSocket?.send(subscriptionMessage) ?: false
         if (success) {
             connection.subscriptionSentTime = System.currentTimeMillis()
-            sendDebugLog("✅ Subscription message sent to ${connection.relayUrl}")
+            sendDebugLog("Subscription message sent to ${connection.relayUrl}")
             
             // Schedule verification check
             CoroutineScope(Dispatchers.IO).launch {
                 delay(30000) // Wait 30 seconds
                 if (!connection.subscriptionConfirmed) {
-                    sendDebugLog("⚠️ Subscription not confirmed after 30s for ${connection.relayUrl}, may need reconnection")
+                    sendDebugLog("Subscription not confirmed after 30s for ${connection.relayUrl}, may need reconnection")
                     // Could trigger a reconnection here if needed
                 }
             }
         } else {
-            sendDebugLog("❌ Failed to send subscription message to ${connection.relayUrl}")
+            sendDebugLog("Failed to send subscription message to ${connection.relayUrl}")
         }
     }
     
@@ -282,7 +282,7 @@ class WebSocketConnectionManager(
         val currentTimestamp = System.currentTimeMillis() / 1000 // Convert to Unix timestamp
         val safeTimestamp = currentTimestamp - safetyBufferSeconds
         
-        sendDebugLog("📋 Using safety buffer: ${safetyBufferSeconds / 60}min lookback to prevent gaps")
+        sendDebugLog("Using safety buffer: ${safetyBufferSeconds / 60}min lookback to prevent gaps")
         
         return baseFilter.copy(since = safeTimestamp)
     }
@@ -310,7 +310,7 @@ class WebSocketConnectionManager(
                         "network_available" to networkManager.isNetworkAvailable()
                     )
                 )
-                sendDebugLog("⏸️ Skipping reconnection: ${networkAwareDecision.reason}")
+                sendDebugLog("Skipping reconnection: ${networkAwareDecision.reason}")
                 
                 // Log reconnection skip for monitoring
                 networkOptimizationLogger.logReconnectionDecision(
@@ -351,7 +351,7 @@ class WebSocketConnectionManager(
                 )
             )
             
-            sendDebugLog("🔄 Reconnecting to ${connection.relayUrl.substringAfter("://").take(20)}... in ${delayMs}ms (attempt ${connection.reconnectAttempts + 1}, ${networkManager.getCurrentNetworkType()})")
+            sendDebugLog("Reconnecting to ${connection.relayUrl.substringAfter("://").take(20)}... in ${delayMs}ms (attempt ${connection.reconnectAttempts + 1}, ${networkManager.getCurrentNetworkType()})")
             
             // Log reconnection attempt for monitoring
             networkOptimizationLogger.logReconnectionDecision(
@@ -370,7 +370,7 @@ class WebSocketConnectionManager(
             
             // Double-check network availability before attempting reconnection
             if (!networkManager.isNetworkAvailable()) {
-                sendDebugLog("❌ Network unavailable during reconnect attempt, aborting")
+                sendDebugLog("Network unavailable during reconnect attempt, aborting")
                 return@launch
             }
             
@@ -384,7 +384,7 @@ class WebSocketConnectionManager(
      * Disconnect from all relays
      */
     fun disconnectFromAllRelays() {
-        sendDebugLog("📡 Disconnecting from all relays")
+        sendDebugLog("Disconnecting from all relays")
         
         relayConnections.values.forEach { connection ->
             connection.reconnectJob?.cancel()
@@ -395,7 +395,7 @@ class WebSocketConnectionManager(
         }
         
         relayConnections.clear()
-        sendDebugLog("📡 All relays disconnected")
+        sendDebugLog("All relays disconnected")
     }
     
     /**
@@ -404,7 +404,7 @@ class WebSocketConnectionManager(
     fun syncConfigurations() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                sendDebugLog("🔄 Synchronizing configurations with active subscriptions...")
+                sendDebugLog("Synchronizing configurations with active subscriptions...")
                 
                 val enabledConfigurations = configurationManager.getEnabledConfigurations()
                 val currentRelayUrls = relayConnections.keys.toSet()
@@ -418,7 +418,7 @@ class WebSocketConnectionManager(
                 // Remove connections for disabled configurations
                 val relaysToRemove = currentRelayUrls - expectedRelayUrls
                 if (relaysToRemove.isNotEmpty()) {
-                    sendDebugLog("🗑️ Removing ${relaysToRemove.size} disabled subscription(s)")
+                    sendDebugLog("Removing ${relaysToRemove.size} disabled subscription(s)")
                     relaysToRemove.forEach { relayUrl ->
                         try {
                             val connection = relayConnections[relayUrl]
@@ -428,9 +428,9 @@ class WebSocketConnectionManager(
                                     try {
                                         connection.webSocket?.send(NostrMessage.createClose(subId))
                                         subscriptionManager.removeSubscription(subId)
-                                        sendDebugLog("🛑 Closed subscription: ${subId.take(8)}... for $relayUrl")
+                                        sendDebugLog("Closed subscription: ${subId.take(8)}... for $relayUrl")
                                     } catch (e: Exception) {
-                                        sendDebugLog("⚠️ Error closing subscription $subId: ${e.message}")
+                                        sendDebugLog("Error closing subscription $subId: ${e.message}")
                                     }
                                 }
                                 
@@ -439,15 +439,15 @@ class WebSocketConnectionManager(
                                     connection.reconnectJob?.cancel()
                                     connection.webSocket?.close(1000, "Configuration disabled")
                                     relayConnections.remove(relayUrl)
-                                    sendDebugLog("❌ Removed connection: $relayUrl")
+                                    sendDebugLog("Removed connection: $relayUrl")
                                 } catch (e: Exception) {
-                                    sendDebugLog("⚠️ Error removing connection $relayUrl: ${e.message}")
+                                    sendDebugLog("Error removing connection $relayUrl: ${e.message}")
                                     // Still remove from map even if close failed
                                     relayConnections.remove(relayUrl)
                                 }
                             }
                         } catch (e: Exception) {
-                            sendDebugLog("⚠️ Error processing removal of $relayUrl: ${e.message}")
+                            sendDebugLog("Error processing removal of $relayUrl: ${e.message}")
                         }
                     }
                 }
@@ -461,9 +461,9 @@ class WebSocketConnectionManager(
                             if (relayUrl in relaysToAdd) {
                                 try {
                                     connectToRelay(relayUrl, config)
-                                    sendDebugLog("✅ Added connection: $relayUrl for ${config.name}")
+                                    sendDebugLog("Added connection: $relayUrl for ${config.name}")
                                 } catch (e: Exception) {
-                                    sendDebugLog("⚠️ Error adding connection $relayUrl: ${e.message}")
+                                    sendDebugLog("Error adding connection $relayUrl: ${e.message}")
                                 }
                             }
                         }
@@ -480,7 +480,7 @@ class WebSocketConnectionManager(
                         if (connection != null && currentConfig != null) {
                             // Check if this connection's configuration has changed
                             if (connection.configurationId != currentConfig.id) {
-                                sendDebugLog("🔄 Configuration changed for $relayUrl, resubscribing...")
+                                sendDebugLog("Configuration changed for $relayUrl, resubscribing...")
                                 
                                 // Close old subscription
                                 connection.subscriptionId?.let { subId ->
@@ -488,7 +488,7 @@ class WebSocketConnectionManager(
                                         connection.webSocket?.send(NostrMessage.createClose(subId))
                                         subscriptionManager.removeSubscription(subId)
                                     } catch (e: Exception) {
-                                        sendDebugLog("⚠️ Error closing old subscription: ${e.message}")
+                                        sendDebugLog("Error closing old subscription: ${e.message}")
                                     }
                                 }
                                 
@@ -498,18 +498,18 @@ class WebSocketConnectionManager(
                                     relayConnections[relayUrl] = updatedConnection
                                     subscribeToEvents(updatedConnection, currentConfig)
                                 } catch (e: Exception) {
-                                    sendDebugLog("⚠️ Error resubscribing to $relayUrl: ${e.message}")
+                                    sendDebugLog("️ Error resubscribing to $relayUrl: ${e.message}")
                                 }
                             }
                         }
                     } catch (e: Exception) {
-                        sendDebugLog("⚠️ Error updating existing connection $relayUrl: ${e.message}")
+                        sendDebugLog("️ Error updating existing connection $relayUrl: ${e.message}")
                     }
                 }
                 
-                sendDebugLog("✅ Configuration sync completed")
+                sendDebugLog("Configuration sync completed")
             } catch (e: Exception) {
-                sendDebugLog("❌ Error during configuration sync: ${e.message}")
+                sendDebugLog("Error during configuration sync: ${e.message}")
                 Log.e(TAG, "syncConfigurations failed", e)
             }
         }
@@ -520,7 +520,7 @@ class WebSocketConnectionManager(
      */
     fun refreshConnections() {
         CoroutineScope(Dispatchers.IO).launch {
-            sendDebugLog("🔄 Refreshing all WebSocket connections...")
+            sendDebugLog("Refreshing all WebSocket connections...")
             
             // First, sync configurations to ensure we have the right subscriptions
             syncConfigurations()
@@ -531,7 +531,7 @@ class WebSocketConnectionManager(
             relayConnections.forEach { (relayUrl, connection) ->
                 val webSocket = connection.webSocket
                 if (webSocket == null) {
-                    sendDebugLog("❌ $relayUrl: No WebSocket instance")
+                    sendDebugLog("$relayUrl: No WebSocket instance")
                     staleConnections.add(relayUrl)
                 } else {
                     // Try to send a ping to test the connection
@@ -542,10 +542,10 @@ class WebSocketConnectionManager(
                             sendDebugLog("💔 $relayUrl: Connection appears stale")
                             staleConnections.add(relayUrl)
                         } else {
-                            sendDebugLog("✅ $relayUrl: Connection appears healthy")
+                            sendDebugLog("$relayUrl: Connection appears healthy")
                         }
                     } catch (e: Exception) {
-                        sendDebugLog("❌ $relayUrl: Health check failed - ${e.message}")
+                        sendDebugLog("$relayUrl: Health check failed - ${e.message}")
                         staleConnections.add(relayUrl)
                     }
                 }
@@ -576,13 +576,13 @@ class WebSocketConnectionManager(
                             // Reconnect
                             connectToRelay(relayUrl, configuration)
                         } else {
-                            sendDebugLog("⚠️ No configuration found for $relayUrl, removing connection")
+                            sendDebugLog("️ No configuration found for $relayUrl, removing connection")
                             relayConnections.remove(relayUrl)
                         }
                     }
                 }
             } else {
-                sendDebugLog("✅ All connections appear healthy")
+                sendDebugLog("All connections appear healthy")
             }
         }
     }
@@ -604,7 +604,7 @@ class WebSocketConnectionManager(
                 }
                 pingSuccess
             } catch (e: Exception) {
-                sendDebugLog("🏥 Health check ping failed for $relayUrl: ${e.message}")
+                sendDebugLog("Health check ping failed for $relayUrl: ${e.message}")
                 false
             }
             
@@ -614,7 +614,7 @@ class WebSocketConnectionManager(
                 val maxSilenceMs = (batteryPowerManager.getCurrentPingInterval() * 1000 * 2) // 2x ping interval
                 
                 // Enhanced diagnostic logging
-                sendDebugLog("🏥 Health check for ${relayUrl.substringAfter("://").take(20)}:")
+                sendDebugLog("Health check for ${relayUrl.substringAfter("://").take(20)}:")
                 sendDebugLog("   📡 Basic ping: ${if (basicHealthy) "✅" else "❌"}")
                 sendDebugLog("   ⏰ Last message: ${timeSinceLastMessage / 1000}s ago")
                 sendDebugLog("   🏓 Last ping: ${if (connection.lastPingTime > 0) "${timeSinceLastPing / 1000}s ago" else "never"}")

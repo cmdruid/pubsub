@@ -106,7 +106,7 @@ class NetworkManager(
                 )
             )
             
-            sendDebugLog("🌐 Network monitoring setup: $currentNetworkType, available: $isNetworkAvailable")
+            sendDebugLog("Network monitoring setup: $currentNetworkType, available: $isNetworkAvailable")
         } catch (e: Exception) {
             batteryOptimizationLogger.logOptimization(
                 category = BatteryOptimizationLogger.LogCategory.NETWORK_STATE,
@@ -114,7 +114,7 @@ class NetworkManager(
                 message = "Failed to setup network monitoring",
                 data = mapOf("error" to e.message.toString())
             )
-            sendDebugLog("❌ Network monitoring setup failed: ${e.message}")
+            sendDebugLog("Network monitoring setup failed: ${e.message}")
         }
     }
     
@@ -150,7 +150,7 @@ class NetworkManager(
             )
             
             val statusEmoji = if (available) "✅" else "❌"
-            sendDebugLog("🌐 $statusEmoji Network: $currentNetworkType, quality: $networkQuality")
+            sendDebugLog("$statusEmoji Network: $currentNetworkType, quality: $networkQuality")
             
             // Log network state change for monitoring
             networkOptimizationLogger.logNetworkStateChange(
@@ -201,7 +201,7 @@ class NetworkManager(
                 )
             )
             
-            sendDebugLog("🌐 Network capabilities: $oldType → $currentNetworkType, quality: $oldQuality → $networkQuality")
+            sendDebugLog("Network capabilities: $oldType → $currentNetworkType, quality: $oldQuality → $networkQuality")
             
             // Adjust optimization based on network quality
             adjustOptimizationForNetworkQuality(newNetworkQuality)
@@ -262,14 +262,14 @@ class NetworkManager(
             )
             
             if (shouldReconnect) {
-                sendDebugLog("🔄 Network restored, refreshing connections (offline for ${downTime}ms)")
+                sendDebugLog("Network restored, refreshing connections (offline for ${downTime}ms)")
                 CoroutineScope(Dispatchers.IO).launch {
                     onRefreshConnections()
                 }
             }
         } else if (!networkAvailable) {
             // Network lost - avoid unnecessary reconnection attempts
-            sendDebugLog("📡 Network lost, avoiding reconnection attempts")
+            sendDebugLog("Network lost, avoiding reconnection attempts")
         }
     }
     
@@ -298,7 +298,7 @@ class NetworkManager(
         )
         
         if (qualityMultiplier != 1.0) {
-            sendDebugLog("🌐 Adjusting optimization for $quality network quality (${qualityMultiplier}x)")
+            sendDebugLog("Adjusting optimization for $quality network quality (${qualityMultiplier}x)")
         }
     }
     

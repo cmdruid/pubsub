@@ -2,6 +2,9 @@ package com.cmdruid.pubsub.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.cmdruid.pubsub.logging.LogFilter
+import com.cmdruid.pubsub.logging.LogType
+import com.cmdruid.pubsub.logging.LogDomain
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 
@@ -14,6 +17,7 @@ class SettingsManager(context: Context) {
     companion object {
         private const val PREFS_NAME = "pubsub_app_settings"
         private const val KEY_SETTINGS = "app_settings"
+        private const val KEY_LOG_FILTER = "log_filter"
     }
     
     private val sharedPrefs: SharedPreferences = 
@@ -207,6 +211,35 @@ class SettingsManager(context: Context) {
         
         if (oldSettings.showDebugConsole != newSettings.showDebugConsole) {
             listeners.forEach { it.onDebugConsoleVisibilityChanged(newSettings.showDebugConsole) }
+        }
+    }
+    
+    /**
+     * Save log filter preferences
+     */
+    fun saveLogFilter(filter: LogFilter) {
+        try {
+            val json = gson.toJson(filter)
+            sharedPrefs.edit().putString(KEY_LOG_FILTER, json).apply()
+        } catch (e: Exception) {
+            // Fail silently if we can't save filter preferences
+        }
+    }
+    
+    /**
+     * Load saved log filter preferences, or return default if none saved
+     */
+    fun getLogFilter(): LogFilter {
+        return try {
+            val json = sharedPrefs.getString(KEY_LOG_FILTER, null)
+            if (json != null) {
+                gson.fromJson(json, LogFilter::class.java) ?: LogFilter.DEFAULT
+            } else {
+                LogFilter.DEFAULT
+            }
+        } catch (e: Exception) {
+            // Return default filter if loading fails
+            LogFilter.DEFAULT
         }
     }
 }

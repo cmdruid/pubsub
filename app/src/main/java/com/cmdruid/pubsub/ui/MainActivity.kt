@@ -23,6 +23,10 @@ import java.util.*
 
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.cmdruid.pubsub.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.cmdruid.pubsub.data.BatteryMode
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
@@ -33,6 +37,7 @@ import com.cmdruid.pubsub.service.PubSubService
 import com.cmdruid.pubsub.ui.adapters.ConfigurationAdapter
 import com.cmdruid.pubsub.ui.adapters.DebugLogAdapter
 import com.cmdruid.pubsub.utils.DeepLinkHandler
+import com.cmdruid.pubsub.logging.*
 
 class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener {
     
@@ -51,6 +56,8 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     private lateinit var settingsManager: SettingsManager
     private lateinit var configurationAdapter: ConfigurationAdapter
     private lateinit var debugLogAdapter: DebugLogAdapter
+    private lateinit var unifiedLogger: UnifiedLogger
+    private var currentLogFilter = LogFilter.DEFAULT
     
     // Battery optimization: Lifecycle state tracking
     private var appResumedTime: Long = 0
@@ -77,8 +84,20 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             when (intent?.action) {
                 ACTION_DEBUG_LOG -> {
                     val message = intent.getStringExtra(EXTRA_LOG_MESSAGE) ?: return
-                    configurationManager.addDebugLog(message)
-                    refreshDebugLogs()
+                    // Parse structured log entry from JSON
+                    val entry = StructuredLogEntry.fromJson(message)
+                    if (entry != null) {
+                        // Add to adapter immediately for real-time display
+                        debugLogAdapter.addLog(entry)
+                        
+                        // Update stats efficiently without re-reading all logs
+                        updateDebugStatsQuick()
+                        
+                        // Store in background to avoid blocking UI
+                        CoroutineScope(Dispatchers.IO).launch {
+                            configurationManager.addStructuredLog(entry)
+                        }
+                    }
                 }
             }
         }
@@ -94,6 +113,13 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         
         configurationManager = ConfigurationManager(this)
         settingsManager = SettingsManager(this)
+        unifiedLogger = UnifiedLoggerImpl(this, configurationManager)
+        
+        // Load saved filter preferences
+        currentLogFilter = settingsManager.getLogFilter()
+        
+        // Set initial filter for performance filtering
+        (unifiedLogger as? UnifiedLoggerImpl)?.setFilter(currentLogFilter)
         
         setupToolbar()
         setupConfigurationsRecyclerView()
@@ -102,7 +128,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         requestNotificationPermission()
         updateServiceStatus()
         refreshConfigurations()
-        refreshDebugLogs()
+        
+        // Load debug logs asynchronously to avoid blocking UI
+        loadDebugLogsAsync()
         
         // Register for settings changes and apply initial debug console visibility
         settingsManager.addSettingsChangeListener(this)
@@ -145,7 +173,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 showDeleteConfirmationDialog(configuration)
             },
             onEnabledChanged = { configuration, enabled ->
-                configurationManager.addDebugLog("🔄 Toggle: ${configuration.name} → ${if (enabled) "ON" else "OFF"}")
+                unifiedLogger.info(LogDomain.UI, "Toggle: ${configuration.name} → ${if (enabled) "ON" else "OFF"}")
                 
                 val updatedConfiguration = configuration.copy(isEnabled = enabled)
                 configurationManager.updateConfiguration(updatedConfiguration)
@@ -155,10 +183,10 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 
                 // Notify service to sync configurations if it's running
                 if (configurationManager.isServiceRunning) {
-                    configurationManager.addDebugLog("📤 Syncing service configurations...")
+                    unifiedLogger.info(LogDomain.SERVICE, "Syncing service configurations...")
                     syncServiceConfigurations()
                 } else {
-                    configurationManager.addDebugLog("⏸️ Service not running, toggle saved but won't take effect until service starts")
+                    unifiedLogger.warn(LogDomain.SERVICE, "Service not running, toggle saved but won't take effect until service starts")
                 }
                 
                 updateServiceStatus()
@@ -176,6 +204,13 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         binding.debugLogsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = debugLogAdapter
+            
+            // Disable all animations for fastest possible display
+            itemAnimator = null
+            
+            // Optimize for performance
+            setHasFixedSize(true)
+            setItemViewCacheSize(20)
         }
     }
     
@@ -207,16 +242,26 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 exportDebugLogs()
             }
             
+            filterLogsButton.setOnClickListener {
+                showLogFilterDialog()
+            }
+            
             clearLogsButton.setOnClickListener {
-                configurationManager.clearDebugLogs()
-                refreshDebugLogs()
+                // Clear adapter immediately for instant UI response
+                debugLogAdapter.clearLogs()
+                updateDebugStatsQuick()
+                
+                // Clear storage in background without blocking UI
+                CoroutineScope(Dispatchers.IO).launch {
+                    configurationManager.clearStructuredLogs()
+                }
             }
             
             // Add sample deep link generation for testing (long press on clear logs button)
             clearLogsButton.setOnLongClickListener {
                 val sampleDeepLink = DeepLinkHandler.generateSampleDeepLink()
-                configurationManager.addDebugLog("Sample deep link: $sampleDeepLink")
-                refreshDebugLogs()
+                unifiedLogger.info(LogDomain.UI, "Sample deep link: $sampleDeepLink")
+                // No need to refresh - the unified logger will broadcast the entry automatically
                 Toast.makeText(this@MainActivity, "Sample deep link added to debug logs", Toast.LENGTH_SHORT).show()
                 true
             }
@@ -285,17 +330,74 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
     }
     
     private fun refreshDebugLogs() {
-        val logs = configurationManager.debugLogs
+        val logs = configurationManager.structuredLogs
         debugLogAdapter.setLogs(logs)
+        debugLogAdapter.setFilter(currentLogFilter)
+        updateDebugStats()
+    }
+    
+    private fun loadDebugLogsAsync() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Load logs on background thread
+                val logs = configurationManager.structuredLogs
+                
+                // Switch back to main thread for UI updates
+                withContext(Dispatchers.Main) {
+                    debugLogAdapter.setLogs(logs)
+                    debugLogAdapter.setFilter(currentLogFilter)
+                    updateDebugStats(logs)
+                }
+            } catch (e: Exception) {
+                // Handle any errors gracefully
+                withContext(Dispatchers.Main) {
+                    binding.debugStatsText.text = "0/${currentLogFilter.maxLogs} logs"
+                    binding.noLogsText.visibility = View.VISIBLE
+                }
+            }
+        }
+    }
+    
+    private fun updateDebugStats(logs: List<StructuredLogEntry>? = null) {
+        val logsList = logs ?: configurationManager.structuredLogs
+        val filteredCount = logsList.filter { currentLogFilter.passes(it) }.take(currentLogFilter.maxLogs).size
         
-        // Update debug stats
-        binding.debugStatsText.text = configurationManager.getDebugLogStats()
+        // Update debug stats: current/max format
+        binding.debugStatsText.text = "$filteredCount/${currentLogFilter.maxLogs} logs"
         
-        binding.noLogsText.visibility = if (logs.isEmpty()) {
+        binding.noLogsText.visibility = if (filteredCount == 0) {
             View.VISIBLE
         } else {
             View.GONE
         }
+    }
+    
+    private fun updateDebugStatsQuick() {
+        // Quick stats update using adapter's current count
+        val currentCount = debugLogAdapter.itemCount
+        binding.debugStatsText.text = "$currentCount/${currentLogFilter.maxLogs} logs"
+        
+        binding.noLogsText.visibility = if (currentCount == 0) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+    }
+    
+    private fun showLogFilterDialog() {
+        val dialog = LogFilterDialog(this, currentLogFilter) { newFilter ->
+            currentLogFilter = newFilter
+            
+            // Save filter preferences for persistence
+            settingsManager.saveLogFilter(newFilter)
+            
+            // Update both adapter and logger for performance filtering
+            debugLogAdapter.setFilter(newFilter)
+            (unifiedLogger as? UnifiedLoggerImpl)?.setFilter(newFilter)
+            
+            updateDebugStats()
+        }
+        dialog.show()
     }
     
     private fun showDeleteConfirmationDialog(configuration: Configuration) {
@@ -344,7 +446,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         appResumedTime = currentTime
         
         // Log app state transition
-        configurationManager.addDebugLog("🔋 App resumed (background for ${backgroundDuration}ms)")
+        unifiedLogger.info(LogDomain.UI, "App resumed (background for ${backgroundDuration}ms)")
         
         // Notify service about app state change
         sendAppStateChangeToService("FOREGROUND", backgroundDuration)
@@ -354,7 +456,8 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         
         updateServiceStatus()
         refreshConfigurations()
-        refreshDebugLogs()
+        // Load debug logs asynchronously to avoid blocking UI on resume
+        loadDebugLogsAsync()
     }
     
     override fun onPause() {
@@ -366,7 +469,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         appPausedTime = currentTime
         
         // Log app state transition
-        configurationManager.addDebugLog("🔋 App paused (foreground for ${foregroundDuration}ms)")
+        unifiedLogger.info(LogDomain.UI, "App paused (foreground for ${foregroundDuration}ms)")
         
         // Notify service about app state change
         sendAppStateChangeToService("BACKGROUND", foregroundDuration)
@@ -380,15 +483,15 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         val actuallyRunning = isServiceActuallyRunning()
         
         if (storedState != actuallyRunning) {
-            configurationManager.addDebugLog("🔧 Service state mismatch detected - stored: $storedState, actual: $actuallyRunning")
+            unifiedLogger.warn(LogDomain.SERVICE, "Service state mismatch detected - stored: $storedState, actual: $actuallyRunning")
             
             if (storedState && !actuallyRunning) {
                 // App thinks service is running but it's not (service was killed)
                 configurationManager.isServiceRunning = false
-                configurationManager.addDebugLog("❌ Service was killed, state corrected")
+                unifiedLogger.error(LogDomain.SERVICE, "Service was killed, state corrected")
                 
                 if (configurationManager.hasValidEnabledConfigurations()) {
-                    configurationManager.addDebugLog("🔄 Auto-restarting service after it was killed")
+                    unifiedLogger.info(LogDomain.SERVICE, "Auto-restarting service after it was killed")
                     // Give the system a moment, then restart the service
                     binding.root.postDelayed({
                         if (!isServiceActuallyRunning()) {
@@ -400,7 +503,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             } else if (!storedState && actuallyRunning) {
                 // Service is running but app doesn't think it is (service auto-restarted)
                 configurationManager.isServiceRunning = true
-                configurationManager.addDebugLog("✅ Found running service, updated state")
+                unifiedLogger.info(LogDomain.SERVICE, "Found running service, updated state")
                 Toast.makeText(this, "Service automatically restarted", Toast.LENGTH_SHORT).show()
             }
         }
@@ -435,9 +538,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 startService(serviceIntent)
             }
             
-            configurationManager.addDebugLog("🔄 Requested configuration sync")
+            unifiedLogger.info(LogDomain.SERVICE, "Requested configuration sync")
         } catch (e: Exception) {
-            configurationManager.addDebugLog("❌ Failed to sync configurations: ${e.message}")
+            unifiedLogger.error(LogDomain.SERVICE, "Failed to sync configurations: ${e.message}")
         }
     }
     
@@ -453,9 +556,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             }
             sendBroadcast(intent)
             
-            configurationManager.addDebugLog("📤 Sent app state change: $appState (duration: ${duration}ms)")
+            unifiedLogger.info(LogDomain.UI, "Sent app state change: $appState (duration: ${duration}ms)")
         } catch (e: Exception) {
-            configurationManager.addDebugLog("❌ Failed to send app state change: ${e.message}")
+            unifiedLogger.error(LogDomain.UI, "Failed to send app state change: ${e.message}")
         }
     }
 
@@ -473,23 +576,23 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             return
         }
         
-        configurationManager.addDebugLog("handleDeepLinkIntent called with data: $data")
+        unifiedLogger.debug(LogDomain.UI, "handleDeepLinkIntent called with data: $data")
         
         if (!DeepLinkHandler.isPubSubDeepLink(data)) {
-            configurationManager.addDebugLog("Not a pubsub deep link: $data")
+            unifiedLogger.debug(LogDomain.UI, "Not a pubsub deep link: $data")
             return
         }
         
-        configurationManager.addDebugLog("Processing pubsub deep link: $data")
+        unifiedLogger.info(LogDomain.UI, "Processing pubsub deep link: $data")
         
         val result = DeepLinkHandler.parseRegisterDeepLink(data)
         
         if (result.success && result.configuration != null) {
-            configurationManager.addDebugLog("Deep link parsed successfully: ${result.configuration.name}")
+            unifiedLogger.info(LogDomain.UI, "Deep link parsed successfully: ${result.configuration.name}")
             showRegisterConfigurationDialog(result.configuration)
         } else {
             val errorMessage = result.errorMessage ?: "Unknown error parsing deep link"
-            configurationManager.addDebugLog("Deep link parsing failed: $errorMessage")
+            unifiedLogger.error(LogDomain.UI, "Deep link parsing failed: $errorMessage")
             showDeepLinkErrorDialog(errorMessage)
         }
     }
@@ -513,7 +616,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 registerConfigurationFromDeepLink(configuration)
             }
             .setNegativeButton("Cancel") { _, _ ->
-                configurationManager.addDebugLog("Deep link subscription registration cancelled")
+                unifiedLogger.info(LogDomain.UI, "Deep link subscription registration cancelled")
             }
             .show()
     }
@@ -536,11 +639,11 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 refreshConfigurations()
                 updateServiceStatus()
                 
-                configurationManager.addDebugLog("Registered new subscription: ${configuration.name}")
+                unifiedLogger.info(LogDomain.SUBSCRIPTION, "Registered new subscription: ${configuration.name}")
                 Toast.makeText(this, "Subscription '${configuration.name}' registered successfully!", Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
-            configurationManager.addDebugLog("Error registering subscription: ${e.message}")
+            unifiedLogger.error(LogDomain.SUBSCRIPTION, "Error registering subscription: ${e.message}")
             Toast.makeText(this, "Error registering subscription: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
@@ -559,11 +662,11 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 refreshConfigurations()
                 updateServiceStatus()
                 
-                configurationManager.addDebugLog("Updated existing subscription: ${newConfiguration.name}")
+                unifiedLogger.info(LogDomain.SUBSCRIPTION, "Updated existing subscription: ${newConfiguration.name}")
                 Toast.makeText(this, "Subscription '${newConfiguration.name}' updated successfully!", Toast.LENGTH_LONG).show()
             }
             .setNegativeButton("Keep Existing") { _, _ ->
-                configurationManager.addDebugLog("Kept existing subscription: ${newConfiguration.name}")
+                unifiedLogger.info(LogDomain.SUBSCRIPTION, "Kept existing subscription: ${newConfiguration.name}")
             }
             .show()
     }
@@ -572,7 +675,7 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
      * Show error dialog for deep link parsing errors
      */
     private fun showDeepLinkErrorDialog(errorMessage: String) {
-        configurationManager.addDebugLog("Deep link error: $errorMessage")
+        unifiedLogger.error(LogDomain.UI, "Deep link error: $errorMessage")
         
         AlertDialog.Builder(this)
             .setTitle("Deep Link Error")
@@ -596,8 +699,8 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
      * Export debug logs to a text file
      */
     private fun exportDebugLogs() {
-        val logs = configurationManager.debugLogs
-        if (logs.isEmpty()) {
+        // Check current adapter count for quick validation
+        if (debugLogAdapter.itemCount == 0) {
             Toast.makeText(this, "No debug logs to export", Toast.LENGTH_SHORT).show()
             return
         }
@@ -614,18 +717,26 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
      * Write debug logs to the selected file
      */
     private fun exportDebugLogsToFile(uri: android.net.Uri) {
-        try {
-            contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val content = configurationManager.getFormattedDebugLogsForExport()
-                outputStream.write(content.toByteArray())
-                outputStream.flush()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    val content = configurationManager.getFormattedDebugLogsForExport(currentLogFilter)
+                    outputStream.write(content.toByteArray())
+                    outputStream.flush()
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Debug logs exported successfully", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: IOException) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Failed to export debug logs: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Error exporting debug logs: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
-            
-            Toast.makeText(this, "Debug logs exported successfully", Toast.LENGTH_SHORT).show()
-        } catch (e: IOException) {
-            Toast.makeText(this, "Failed to export debug logs: ${e.message}", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error exporting debug logs: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
     

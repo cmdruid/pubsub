@@ -158,7 +158,7 @@ class BatteryPowerManager(
             )
         )
         
-        sendDebugLog("🔋 Power management setup complete")
+        sendDebugLog("Power management setup complete")
     }
     
     /**
@@ -203,7 +203,7 @@ class BatteryPowerManager(
             )
         )
         
-        sendDebugLog("🌙 Doze detection setup complete (doze: $isDozeMode)")
+        sendDebugLog("Doze detection setup complete (doze: $isDozeMode)")
     }
     
     /**
@@ -240,7 +240,7 @@ class BatteryPowerManager(
             )
         )
         
-        sendDebugLog("🔋 Battery monitoring setup complete (level: $currentBatteryLevel%, charging: $isCharging)")
+        sendDebugLog("Battery monitoring setup complete (level: $currentBatteryLevel%, charging: $isCharging)")
     }
     
     /**
@@ -278,7 +278,7 @@ class BatteryPowerManager(
             )
         )
         
-        sendDebugLog("📱 App standby monitoring setup complete (bucket: ${getStandbyBucketName(currentStandbyBucket)})")
+        sendDebugLog("App standby monitoring setup complete (bucket: ${getStandbyBucketName(currentStandbyBucket)})")
     }
     
     /**
@@ -345,7 +345,7 @@ class BatteryPowerManager(
             currentAppState = newState
             appStateChangedTime = currentTime
             
-            sendDebugLog("🔋 App state: ${oldState.name} → ${newState.name} (${previousStateDuration}ms)")
+            sendDebugLog("App state: ${oldState.name} → ${newState.name} (${previousStateDuration}ms)")
             
             // Update ping interval based on new state
             updatePingInterval()
@@ -465,7 +465,7 @@ class BatteryPowerManager(
             
             handleBatteryOptimizationChange()
             
-            sendDebugLog("🔌 Charging ${if (isCharging) "CONNECTED" else "DISCONNECTED"} (battery: $currentBatteryLevel%)")
+            sendDebugLog("Charging ${if (isCharging) "CONNECTED" else "DISCONNECTED"} (battery: $currentBatteryLevel%)")
         }
     }
     
@@ -633,7 +633,7 @@ class BatteryPowerManager(
             currentPingInterval = newInterval
             onPingIntervalChange()
             
-            sendDebugLog("🔋 Ping interval updated: ${oldInterval}s → ${newInterval}s (${currentAppState.name})")
+            sendDebugLog("Ping interval updated: ${oldInterval}s → ${newInterval}s (${currentAppState.name})")
         }
     }
     
@@ -723,13 +723,13 @@ class BatteryPowerManager(
                 )
             )
             
-            sendDebugLog("🔒 Wake lock acquired: $reason (${durationMs}ms)")
+            sendDebugLog("Wake lock acquired: $reason (${durationMs}ms)")
             
             // Schedule automatic release as backup
             CoroutineScope(Dispatchers.IO).launch {
                 delay(durationMs + 1000) // Add 1 second buffer
                 if (wakeLock?.isHeld == true && wakeLockReason == reason) {
-                    sendDebugLog("⚠️ Auto-releasing wake lock timeout: $reason")
+                    sendDebugLog("Auto-releasing wake lock timeout: $reason")
                     releaseWakeLock()
                 }
             }
@@ -743,7 +743,7 @@ class BatteryPowerManager(
                     "error" to e.message.toString()
                 )
             )
-            sendDebugLog("❌ Wake lock acquisition failed: ${e.message}")
+            sendDebugLog("Wake lock acquisition failed: ${e.message}")
         }
     }
     
@@ -768,7 +768,7 @@ class BatteryPowerManager(
                         )
                     )
                     
-                    sendDebugLog("🔓 Wake lock released: $wakeLockReason (held ${heldDuration}ms)")
+                    sendDebugLog("Wake lock released: $wakeLockReason (held ${heldDuration}ms)")
                     
                     // Track wake lock effectiveness
                     val wasEffective = heldDuration < wakeLockTimeoutMs
@@ -780,7 +780,7 @@ class BatteryPowerManager(
                         message = "Error releasing wake lock",
                         data = mapOf("error" to e.message.toString())
                     )
-                    sendDebugLog("⚠️ Wake lock release error: ${e.message}")
+                    sendDebugLog("Wake lock release error: ${e.message}")
                 }
             }
             
@@ -813,7 +813,7 @@ class BatteryPowerManager(
     
     // SettingsChangeListener implementation
     override fun onBatteryModeChanged(newMode: BatteryMode) {
-        sendDebugLog("🔋 Battery mode changed to: ${newMode.displayName}")
+        sendDebugLog("Battery mode changed to: ${newMode.displayName}")
         
         // Recalculate ping interval with new battery mode
         val oldInterval = currentPingInterval
@@ -823,7 +823,7 @@ class BatteryPowerManager(
             currentPingInterval = newInterval
             onPingIntervalChange()
             
-            sendDebugLog("🔋 Ping interval updated due to battery mode change: ${oldInterval}s → ${newInterval}s")
+            sendDebugLog("Ping interval updated due to battery mode change: ${oldInterval}s → ${newInterval}s")
             
             batteryOptimizationLogger.logOptimization(
                 category = BatteryOptimizationLogger.LogCategory.OPTIMIZATION_DECISIONS,
@@ -841,7 +841,7 @@ class BatteryPowerManager(
     override fun onNotificationFrequencyChanged(newFrequency: NotificationFrequency) {
         // Battery manager doesn't need to handle notification frequency changes
         // This is handled by the EventNotificationManager
-        sendDebugLog("🔔 Notification frequency changed to: ${newFrequency.displayName}")
+        sendDebugLog("Notification frequency changed to: ${newFrequency.displayName}")
     }
     
     override fun onDebugConsoleVisibilityChanged(visible: Boolean) {

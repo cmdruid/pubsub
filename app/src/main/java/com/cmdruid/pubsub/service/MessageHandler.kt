@@ -4,6 +4,8 @@ import android.net.Uri
 import android.util.Log
 import com.cmdruid.pubsub.data.Configuration
 import com.cmdruid.pubsub.data.ConfigurationManager
+import com.cmdruid.pubsub.logging.UnifiedLogger
+import com.cmdruid.pubsub.logging.LogDomain
 import com.cmdruid.pubsub.nostr.NostrEvent
 import com.cmdruid.pubsub.nostr.NostrMessage
 import com.cmdruid.pubsub.utils.KeywordMatcher
@@ -23,7 +25,8 @@ class MessageHandler(
     private val eventCache: EventCache,
     private val eventNotificationManager: EventNotificationManager,
     private val relayConnections: ConcurrentHashMap<String, PubSubService.RelayConnection>,
-    private val sendDebugLog: (String) -> Unit
+    private val sendDebugLog: (String) -> Unit,
+    private val unifiedLogger: UnifiedLogger
 ) {
     
     companion object {
@@ -56,11 +59,11 @@ class MessageHandler(
                         handleUnknownMessage(parsedMessage, originalConfiguration)
                     }
                     null -> {
-                        sendDebugLog("❌ Failed to parse message for ${originalConfiguration.name}: $messageText")
+                        sendDebugLog("Failed to parse message for ${originalConfiguration.name}: $messageText")
                     }
                 }
             } catch (e: Exception) {
-                sendDebugLog("❌ Error processing message for ${originalConfiguration.name}: ${e.message}")
+                sendDebugLog("Error processing message for ${originalConfiguration.name}: ${e.message}")
             }
         }
     }
@@ -82,7 +85,7 @@ class MessageHandler(
             if (!connection.subscriptionConfirmed) {
                 connection.subscriptionConfirmed = true
                 val timeSinceSubscription = System.currentTimeMillis() - connection.subscriptionSentTime
-                sendDebugLog("✅ Subscription confirmed for $relayUrl after ${timeSinceSubscription}ms")
+                sendDebugLog("Subscription confirmed for $relayUrl after ${timeSinceSubscription}ms")
             }
         }
         
@@ -109,13 +112,13 @@ class MessageHandler(
         
         // 3. Validate event structure
         if (!event.isValid()) {
-            sendDebugLog("❌ Invalid event rejected: ${event.id.take(8)}...")
+            sendDebugLog("Invalid event rejected: ${event.id.take(8)}...")
             return
         }
         
         // 4. Check for duplicate events
         if (eventCache.hasSeenEvent(event.id)) {
-            sendDebugLog("🔄 Ignoring duplicate event: ${event.id.take(8)}...")
+            unifiedLogger.trace(LogDomain.EVENT, "Ignoring duplicate event: ${event.id.take(8)}...")
             return
         }
         
@@ -123,7 +126,7 @@ class MessageHandler(
         eventCache.markEventSeen(event.id)
         subscriptionManager.updateLastEventTimestamp(subscriptionId, event.createdAt)
         
-        sendDebugLog("📨 Event: ${event.id.take(8)}... (${currentConfiguration.name}) [${NostrEvent.getKindName(event.kind)}]")
+        sendDebugLog("Event: ${event.id.take(8)}... (${currentConfiguration.name}) [${NostrEvent.getKindName(event.kind)}]")
         handleNostrEvent(event, currentConfiguration, subscriptionId)
     }
     
@@ -143,7 +146,7 @@ class MessageHandler(
             if (!connection.subscriptionConfirmed) {
                 connection.subscriptionConfirmed = true
                 val timeSinceSubscription = System.currentTimeMillis() - connection.subscriptionSentTime
-                sendDebugLog("✅ Subscription confirmed (EOSE) for $relayUrl after ${timeSinceSubscription}ms")
+                sendDebugLog("Subscription confirmed (EOSE) for $relayUrl after ${timeSinceSubscription}ms")
             }
         }
         
@@ -153,7 +156,7 @@ class MessageHandler(
         } else {
             originalConfiguration
         }
-        sendDebugLog("✅ End of stored events for ${currentConfiguration?.name ?: "unknown"}")
+        sendDebugLog("End of stored events for ${currentConfiguration?.name ?: "unknown"}")
     }
     
     /**
@@ -183,7 +186,7 @@ class MessageHandler(
         parsedMessage: NostrMessage.ParsedMessage.UnknownMessage,
         originalConfiguration: Configuration
     ) {
-        sendDebugLog("⚠️ Unknown message type for ${originalConfiguration.name}: ${parsedMessage.type}")
+        sendDebugLog("️ Unknown message type for ${originalConfiguration.name}: ${parsedMessage.type}")
     }
     
     /**
@@ -211,14 +214,14 @@ class MessageHandler(
             }
             
             val matchingKeywords = matchStats.matchingKeywords.joinToString(", ") { "\"$it\"" }
-            sendDebugLog("✅ Event ${event.id.take(8)}... matched keywords: $matchingKeywords (${matchStats.processingTimeMs}ms)")
+            sendDebugLog("Event ${event.id.take(8)}... matched keywords: $matchingKeywords (${matchStats.processingTimeMs}ms)")
         } else {
-            sendDebugLog("📋 Event ${event.id.take(8)}... (no keyword filter)")
+            unifiedLogger.trace(LogDomain.EVENT, "Event ${event.id.take(8)}... (no keyword filter)")
         }
         
         val eventUri = UriBuilder.buildEventUri(configuration.targetUri, event, configuration.relayUrls)
         if (eventUri == null) {
-            sendDebugLog("❌ Failed to build event URI for ${configuration.name}")
+            sendDebugLog("Failed to build event URI for ${configuration.name}")
             return
         }
         

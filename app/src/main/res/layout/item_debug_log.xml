@@ -24,6 +24,8 @@
             android:fontFamily="monospace"
             android:layout_marginEnd="8dp"
             android:minWidth="48dp"
+            android:maxLines="1"
+            android:includeFontPadding="false"
             tools:text="14:30" />
 
         <TextView
@@ -34,15 +36,23 @@
             android:textSize="12sp"
             android:textColor="?attr/colorOnSurface"
             android:fontFamily="monospace"
+            android:maxLines="3"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
             tools:text="Service started with 2 subscriptions" />
 
     </LinearLayout>
 
-    <!-- Simple divider -->
-    <View
+    <!-- Simple text divider -->
+    <TextView
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#808080"
-        android:layout_marginHorizontal="12dp" />
+        android:layout_height="wrap_content"
+        android:text="- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+        android:textSize="8sp"
+        android:textColor="?attr/colorOutline"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginBottom="4dp"
+        android:maxLines="1"
+        android:gravity="center" />
 
 </LinearLayout>

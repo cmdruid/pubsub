@@ -2,7 +2,10 @@ package com.cmdruid.pubsub.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.cmdruid.pubsub.nostr.NostrFilter
+import com.cmdruid.pubsub.logging.StructuredLogEntry
+import com.cmdruid.pubsub.logging.LogFilter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
@@ -16,6 +19,7 @@ class ConfigurationManager(context: Context) {
         private const val KEY_CONFIGURATIONS = "configurations"
         private const val KEY_SERVICE_RUNNING = "service_running"
         private const val KEY_DEBUG_LOGS = "debug_logs"
+        private const val KEY_STRUCTURED_LOGS = "structured_logs"
         
         // Migration from old preferences
         private const val OLD_PREFS_NAME = "pubsub_prefs"
@@ -115,13 +119,13 @@ class ConfigurationManager(context: Context) {
         set(value) = sharedPrefs.edit().putBoolean(KEY_SERVICE_RUNNING, value).apply()
     
     /**
-     * Debug logs for display in UI
+     * Structured debug logs for display in UI
      */
-    var debugLogs: List<String>
+    var structuredLogs: List<StructuredLogEntry>
         get() {
-            val json = sharedPrefs.getString(KEY_DEBUG_LOGS, null) ?: return emptyList()
+            val json = sharedPrefs.getString(KEY_STRUCTURED_LOGS, null) ?: return emptyList()
             return try {
-                val type = object : TypeToken<List<String>>() {}.type
+                val type = object : TypeToken<List<StructuredLogEntry>>() {}.type
                 gson.fromJson(json, type) ?: emptyList()
             } catch (e: Exception) {
                 emptyList()
@@ -129,77 +133,86 @@ class ConfigurationManager(context: Context) {
         }
         set(value) {
             val json = gson.toJson(value)
-            sharedPrefs.edit().putString(KEY_DEBUG_LOGS, json).apply()
+            sharedPrefs.edit().putString(KEY_STRUCTURED_LOGS, json).apply()
         }
     
     /**
-     * Add a debug log entry
+     * Add a structured log entry (optimized for background thread)
      */
-    fun addDebugLog(message: String) {
-        // Limit message length to prevent extremely long entries
-        val truncatedMessage = if (message.length > 500) {
-            message.take(497) + "..."
-        } else {
-            message
+    fun addStructuredLog(entry: StructuredLogEntry) {
+        try {
+            val logs = structuredLogs.toMutableList()
+            logs.add(0, entry) // Add to beginning
+            
+            // Keep only last 100 logs for comprehensive debugging
+            while (logs.size > 100) {
+                logs.removeAt(logs.size - 1)
+            }
+            
+            structuredLogs = logs
+        } catch (e: Exception) {
+            // Fail silently to avoid crashing on storage issues
+            Log.w("ConfigurationManager", "Failed to store log entry: ${e.message}")
         }
-        
-        val logs = debugLogs.toMutableList()
-        logs.add(0, "${System.currentTimeMillis()}: $truncatedMessage") // Add to beginning
-        
-        // Keep only last 100 logs for comprehensive debugging
-        while (logs.size > 100) {
-            logs.removeAt(logs.size - 1)
-        }
-        
-        debugLogs = logs
     }
     
     /**
-     * Clear debug logs
+     * Get filtered structured logs
      */
-    fun clearDebugLogs() {
-        debugLogs = emptyList()
+    fun getFilteredLogs(filter: LogFilter): List<StructuredLogEntry> {
+        return structuredLogs.filter { filter.passes(it) }.take(filter.maxLogs)
+    }
+    
+    /**
+     * Clear structured logs
+     */
+    fun clearStructuredLogs() {
+        structuredLogs = emptyList()
     }
     
     /**
      * Get debug log statistics
      */
     fun getDebugLogStats(): String {
-        val logs = debugLogs
-        val totalSize = logs.sumOf { it.length }
-        return "${logs.size}/100 logs, ${totalSize} chars"
+        val logs = structuredLogs
+        return "${logs.size}/100 logs"
     }
     
     /**
-     * Get formatted debug logs for export
+     * Get quick log count without parsing (for performance)
      */
-    fun getFormattedDebugLogsForExport(): String {
-        val logs = debugLogs
+    fun getLogCount(): Int {
+        val json = sharedPrefs.getString(KEY_STRUCTURED_LOGS, null) ?: return 0
+        // Quick count by checking if we have data without parsing
+        return if (json.length > 10) {
+            // Rough estimate based on JSON length (much faster than parsing)
+            kotlin.math.min(100, kotlin.math.max(0, (json.length - 2) / 200))
+        } else {
+            0
+        }
+    }
+    
+    /**
+     * Get formatted structured logs for export
+     */
+    fun getFormattedDebugLogsForExport(filter: LogFilter? = null): String {
+        val logs = if (filter != null) getFilteredLogs(filter) else structuredLogs
         if (logs.isEmpty()) {
             return "No debug logs available."
         }
         
         val sb = StringBuilder()
-        sb.appendLine("PubSub Debug Logs Export")
+        sb.appendLine("PubSub Structured Debug Logs Export")
         sb.appendLine("Generated: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
         sb.appendLine("Total logs: ${logs.size}")
-        sb.appendLine("=".repeat(50))
+        if (filter != null) {
+            sb.appendLine("Filter: Types=${filter.enabledTypes.joinToString(",") { it.name }}, Domains=${filter.enabledDomains.joinToString(",") { it.name }}")
+        }
+        sb.appendLine("=".repeat(80))
         sb.appendLine()
         
-        logs.reversed().forEach { log ->
-            // Parse timestamp and message
-            val parts = log.split(": ", limit = 2)
-            if (parts.size == 2) {
-                val timestamp = try {
-                    val millis = parts[0].toLong()
-                    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.getDefault()).format(java.util.Date(millis))
-                } catch (e: Exception) {
-                    parts[0]
-                }
-                sb.appendLine("[$timestamp] ${parts[1]}")
-            } else {
-                sb.appendLine(log)
-            }
+        logs.reversed().forEach { entry ->
+            sb.appendLine(entry.toDetailedString())
         }
         
         return sb.toString()
