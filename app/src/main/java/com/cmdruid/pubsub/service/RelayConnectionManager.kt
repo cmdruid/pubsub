@@ -33,6 +33,7 @@ class RelayConnectionManager(
     private val subscriptionManager: SubscriptionManager,
     private val batteryPowerManager: BatteryPowerManager,
     private val networkManager: NetworkManager,
+    private val metricsCollector: MetricsCollector,
     private val onMessageReceived: (String, String, String) -> Unit, // message, subscriptionId, relayUrl
     private val sendDebugLog: (String) -> Unit
 ) {
@@ -76,6 +77,7 @@ class RelayConnectionManager(
                 batteryPowerManager = batteryPowerManager,
                 networkManager = networkManager,
                 subscriptionManager = subscriptionManager,
+                metricsCollector = metricsCollector,
                 onMessageReceived = onMessageReceived,
                 sendDebugLog = sendDebugLog
             )
@@ -85,7 +87,8 @@ class RelayConnectionManager(
         val filter = subscriptionManager.createRelaySpecificFilter(
             subscriptionId = subscriptionId,
             relayUrl = relayUrl,
-            baseFilter = configuration.filter
+            baseFilter = configuration.filter,
+            metricsCollector = metricsCollector
         )
         
         // Register subscription
@@ -144,15 +147,22 @@ class RelayConnectionManager(
             )
             
             val unhealthyRelays = healthResults.filterValues { health ->
-                !health.isHealthy(thresholds.maxSilenceMs) || 
-                health.reconnectAttempts >= thresholds.maxReconnectAttempts
+                // Use same logic as HealthMonitor for consistency
+                !(health.state == ConnectionState.CONNECTED &&
+                  health.subscriptionConfirmed &&
+                  health.lastMessageAge < thresholds.maxSilenceMs &&
+                  health.reconnectAttempts < thresholds.maxReconnectAttempts)
             }
             
             if (unhealthyRelays.isNotEmpty()) {
                 sendDebugLog("🔧 Reconnecting ${unhealthyRelays.size} unhealthy connections")
                 unhealthyRelays.keys.forEach { relayUrl ->
                     val manager = relayManagers[relayUrl]
-                    manager?.reconnect()
+                    manager?.let {
+                        // Reset reconnection attempts if health check triggered this
+                        it.resetReconnectionAttempts()
+                        it.reconnect()
+                    }
                 }
             } else {
                 sendDebugLog("✅ All connections healthy")
@@ -283,6 +293,7 @@ class SingleRelayManager(
     private val batteryPowerManager: BatteryPowerManager,
     private val networkManager: NetworkManager,
     private val subscriptionManager: SubscriptionManager,
+    private val metricsCollector: MetricsCollector,
     private val onMessageReceived: (String, String, String) -> Unit, // message, subscriptionId, relayUrl
     private val sendDebugLog: (String) -> Unit
 ) {
@@ -341,23 +352,37 @@ class SingleRelayManager(
                 
                 sendDebugLog("✅ $shortUrl connected")
                 
-                // Send subscription immediately
-                val subscriptionMessage = NostrMessage.createSubscription(subscriptionId, filter)
+                // Send subscription immediately with updated filter
+                val updatedFilter = subscriptionManager.createRelaySpecificFilter(subscriptionId, relayUrl, filter, metricsCollector)
+                val subscriptionMessage = NostrMessage.createSubscription(subscriptionId, updatedFilter)
                 val success = webSocket.send(subscriptionMessage)
                 
                 if (success) {
-                    sendDebugLog("📋 Subscription sent to $shortUrl (since: ${filter.since})")
+                    sendDebugLog("📋 Subscription sent to $shortUrl (since: ${updatedFilter.since})")
                 } else {
-                    sendDebugLog("❌ Failed to send subscription to $shortUrl")
+                    sendDebugLog("❌ Failed to send subscription to $shortUrl - this will cause missing events!")
                 }
             }
             
             override fun onMessage(webSocket: WebSocket, text: String) {
                 lastMessageTime = System.currentTimeMillis()
                 
-                // Simple message routing
-                currentSubscriptionId?.let { subId ->
-                    onMessageReceived(text, subId, relayUrl)
+                // TRACE level: Very verbose - message received (could be many per second)
+                // Only enable for deep debugging
+                // sendDebugLog("[TRACE] 📨 Message received from $shortUrl: ${text.take(100)}...")
+                
+                // CRITICAL: Capture subscription ID to prevent race conditions
+                val capturedSubscriptionId = currentSubscriptionId
+                if (capturedSubscriptionId != null) {
+                    // Validate the message is for our subscription before routing
+                    if (text.contains("\"$capturedSubscriptionId\"") || text.startsWith("[\"EVENT\",\"$capturedSubscriptionId\"")) {
+                        onMessageReceived(text, capturedSubscriptionId, relayUrl)
+                    } else {
+                        // This could indicate a cross-subscription issue
+                        sendDebugLog("⚠️ Message received but doesn't match subscription $capturedSubscriptionId: ${text.take(50)}...")
+                    }
+                } else {
+                    sendDebugLog("⚠️ Message received but no active subscription for $shortUrl")
                 }
                 
                 // Mark subscription as confirmed when we receive any message
@@ -403,6 +428,15 @@ class SingleRelayManager(
     }
     
     /**
+     * Reset reconnection attempts (called during health check recovery)
+     */
+    fun resetReconnectionAttempts() {
+        reconnectAttempts = 0
+        val shortUrl = relayUrl.substringAfter("://").take(20)
+        sendDebugLog("🔄 Reset reconnection attempts for $shortUrl")
+    }
+    
+    /**
      * Reconnect with current subscription
      */
     fun reconnect() {
@@ -413,7 +447,11 @@ class SingleRelayManager(
                 CoroutineScope(Dispatchers.IO).launch {
                     connect(subId, subscriptionInfo.filter)
                 }
+            } else {
+                sendDebugLog("❌ Cannot reconnect: No subscription info found for $subId")
             }
+        } ?: run {
+            sendDebugLog("❌ Cannot reconnect: No current subscription ID")
         }
     }
     

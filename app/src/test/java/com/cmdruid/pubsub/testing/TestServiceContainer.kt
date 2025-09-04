@@ -76,6 +76,13 @@ class TestServiceContainer(private val context: Context) {
     }
     
     /**
+     * Add a test configuration (alternative method name for clarity)
+     */
+    fun addConfiguration(config: Configuration): TestServiceContainer {
+        return withConfiguration(config)
+    }
+    
+    /**
      * Set test network state
      */
     fun withNetworkState(state: NetworkState): TestServiceContainer {
@@ -90,6 +97,22 @@ class TestServiceContainer(private val context: Context) {
     fun withBatteryLevel(level: Int): TestServiceContainer {
         testBatteryLevel = level
         println("[$TAG] Set battery level: $level")
+        return this
+    }
+    
+    /**
+     * Set test battery level (alternative method name for clarity)
+     */
+    fun setBatteryLevel(level: Int): TestServiceContainer {
+        return withBatteryLevel(level)
+    }
+    
+    /**
+     * Set test network quality
+     */
+    fun setNetworkQuality(quality: String): TestServiceContainer {
+        // This would need to be implemented in the actual network manager mock
+        println("[$TAG] Set network quality: $quality")
         return this
     }
     
@@ -111,6 +134,7 @@ class TestServiceContainer(private val context: Context) {
             subscriptionManager = subscriptionManager,
             batteryPowerManager = batteryPowerManager!!,
             networkManager = networkManager!!,
+            metricsCollector = metricsCollector!!,
             onMessageReceived = { messageText, subscriptionId, relayUrl ->
                 messageProcessor?.processMessage(messageText, subscriptionId, relayUrl)
             },
@@ -123,6 +147,7 @@ class TestServiceContainer(private val context: Context) {
             subscriptionManager = subscriptionManager,
             eventCache = eventCache,
             eventNotificationManager = eventNotificationManager!!,
+            metricsCollector = metricsCollector!!,
             unifiedLogger = unifiedLogger,
             sendDebugLog = { message -> unifiedLogger.debug(com.cmdruid.pubsub.logging.LogDomain.EVENT, message) }
         )
@@ -203,6 +228,27 @@ class TestServiceContainer(private val context: Context) {
      * Get the event cache (for test assertions)
      */
     fun getEventCache(): EventCache = eventCache
+    
+    /**
+     * Get the relay connection manager (for test assertions)
+     */
+    fun getRelayConnectionManager(): RelayConnectionManager {
+        return relayConnectionManager ?: throw IllegalStateException("RelayConnectionManager not initialized. Call createFullServiceStack() first.")
+    }
+    
+    /**
+     * Get the health monitor (for test assertions)
+     */
+    fun getHealthMonitor(): HealthMonitor {
+        return healthMonitor ?: throw IllegalStateException("HealthMonitor not initialized. Call createFullServiceStack() first.")
+    }
+    
+    /**
+     * Get the metrics collector (for test assertions)
+     */
+    fun getMetricsCollector(): MetricsCollector {
+        return metricsCollector ?: throw IllegalStateException("MetricsCollector not initialized. Call createFullServiceStack() first.")
+    }
     
     /**
      * Cleanup all test components

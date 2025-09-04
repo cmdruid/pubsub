@@ -54,6 +54,7 @@ class BasicMessageProcessorTest {
             subscriptionManager = mockSubscriptionManager,
             eventCache = mockEventCache,
             eventNotificationManager = mockEventNotificationManager,
+            metricsCollector = mockk(relaxed = true),
             unifiedLogger = mockUnifiedLogger,
             sendDebugLog = { _ -> }
         )

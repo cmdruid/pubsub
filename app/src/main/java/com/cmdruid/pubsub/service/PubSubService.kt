@@ -14,6 +14,9 @@ import com.cmdruid.pubsub.data.ConfigurationManager
 import com.cmdruid.pubsub.data.SettingsManager
 import com.cmdruid.pubsub.ui.MainActivity
 import com.cmdruid.pubsub.logging.*
+import com.cmdruid.pubsub.service.health.HealthMonitorV2
+import com.cmdruid.pubsub.service.health.HealthEvaluator
+import com.cmdruid.pubsub.service.health.HealthCheckOrchestrator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +54,7 @@ class PubSubService : Service() {
     private lateinit var eventNotificationManager: EventNotificationManager
     private lateinit var relayConnectionManager: RelayConnectionManager
     private lateinit var messageProcessor: MessageProcessor
-    private lateinit var healthMonitor: HealthMonitor
+    private lateinit var healthMonitor: HealthMonitorV2
     
     // Core data management
     private lateinit var subscriptionManager: SubscriptionManager
@@ -241,7 +244,14 @@ class PubSubService : Service() {
             onRefreshConnections = {
                 relayConnectionManager.refreshConnections()
             },
-            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NETWORK, message) }
+            sendDebugLog = { message -> 
+                // Route verbose network logs to TRACE level
+                if (message.contains("Network quality determined") || message.contains("[TRACE]")) {
+                    unifiedLogger.trace(LogDomain.NETWORK, message.removePrefix("[TRACE] "))
+                } else {
+                    unifiedLogger.debug(LogDomain.NETWORK, message)
+                }
+            }
         )
         
         // Initialize event notification management
@@ -258,10 +268,18 @@ class PubSubService : Service() {
             subscriptionManager = subscriptionManager,
             batteryPowerManager = batteryPowerManager,
             networkManager = networkManager,
+            metricsCollector = metricsCollector,
             onMessageReceived = { messageText, subscriptionId, relayUrl ->
                 messageProcessor.processMessage(messageText, subscriptionId, relayUrl)
             },
-            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NETWORK, message) }
+            sendDebugLog = { message -> 
+                // Route very verbose relay logs to TRACE level
+                if (message.contains("[TRACE]") || message.contains("📨 Message received")) {
+                    unifiedLogger.trace(LogDomain.RELAY, message.removePrefix("[TRACE] "))
+                } else {
+                    unifiedLogger.debug(LogDomain.RELAY, message)
+                }
+            }
         )
         
         // Initialize message processor
@@ -270,17 +288,20 @@ class PubSubService : Service() {
             subscriptionManager = subscriptionManager,
             eventCache = eventCache,
             eventNotificationManager = eventNotificationManager,
+            metricsCollector = metricsCollector,
             unifiedLogger = unifiedLogger,
             sendDebugLog = { message -> unifiedLogger.debug(LogDomain.EVENT, message) }
         )
         
-        // Initialize ENHANCED health monitoring component
-        healthMonitor = HealthMonitor(
+        // Initialize ENHANCED health monitoring component with testable architecture
+        val healthEvaluator = HealthEvaluator()
+        val healthOrchestrator = HealthCheckOrchestrator(healthEvaluator, unifiedLogger)
+        healthMonitor = HealthMonitorV2(
             relayConnectionManager = relayConnectionManager,
             batteryPowerManager = batteryPowerManager,
             metricsCollector = metricsCollector,
             networkManager = networkManager,
-            unifiedLogger = unifiedLogger
+            orchestrator = healthOrchestrator
         )
         
         // Initialize all components

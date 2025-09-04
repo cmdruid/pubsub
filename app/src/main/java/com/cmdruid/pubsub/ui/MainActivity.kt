@@ -150,8 +150,15 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         unifiedLogger = UnifiedLoggerImpl(this, configurationManager)
         metricsReader = MetricsReader(this, settingsManager)
         
-        // Load saved filter preferences
+        // Load saved filter preferences with validation
         currentLogFilter = settingsManager.getLogFilter()
+        
+        // VALIDATION: Ensure filter is not corrupted
+        if (currentLogFilter.enabledTypes.isEmpty() || currentLogFilter.enabledDomains.isEmpty()) {
+            // Filter is corrupted - reset to default
+            currentLogFilter = LogFilter.DEFAULT
+            settingsManager.saveLogFilter(currentLogFilter)
+        }
         
         // Set initial filter for performance filtering
         (unifiedLogger as? UnifiedLoggerImpl)?.setFilter(currentLogFilter)

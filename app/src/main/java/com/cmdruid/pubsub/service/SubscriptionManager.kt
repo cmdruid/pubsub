@@ -116,19 +116,46 @@ class SubscriptionManager(private val context: Context) {
     fun createRelaySpecificFilter(
         subscriptionId: String,
         relayUrl: String,
-        baseFilter: NostrFilter
+        baseFilter: NostrFilter,
+        metricsCollector: MetricsCollector? = null
     ): NostrFilter {
         val lastTimestamp = getRelayTimestamp(subscriptionId, relayUrl)
         
         return if (lastTimestamp != null) {
             // Use precise timestamp + 1 second - NO MORE SAFETY BUFFER!
             val filter = baseFilter.copy(since = lastTimestamp + 1)
-            Log.d(TAG, "Using precise timestamp for $relayUrl: since=${lastTimestamp + 1}")
+            
+            // Calculate how many events we're potentially preventing
+            val currentTimestamp = System.currentTimeMillis() / 1000
+            val timeSpanSeconds = currentTimestamp - lastTimestamp
+            val estimatedEventsFiltered = (timeSpanSeconds / 60).toInt() // Rough estimate: 1 event per minute
+            val estimatedDataSaved = estimatedEventsFiltered * 2048 // Estimate 2KB per event
+            
+            // Track timestamp-based duplicate prevention
+            metricsCollector?.trackDuplicateEvent(
+                eventProcessed = false,
+                duplicateDetected = false,
+                duplicatePrevented = estimatedEventsFiltered > 0,
+                usedPreciseTimestamp = true,
+                networkDataSaved = estimatedDataSaved.toLong()
+            )
+            
+            Log.d(TAG, "Using precise timestamp for $relayUrl: since=${lastTimestamp + 1} (potentially filtered $estimatedEventsFiltered events, saved ~${estimatedDataSaved}B)")
             filter
         } else {
             // First time for this relay - use minimal 5-minute safety buffer
             val currentTimestamp = System.currentTimeMillis() / 1000
             val filter = baseFilter.copy(since = currentTimestamp - 300) // 5 minutes only
+            
+            // Track safety buffer usage
+            metricsCollector?.trackDuplicateEvent(
+                eventProcessed = false,
+                duplicateDetected = false,
+                duplicatePrevented = false,
+                usedPreciseTimestamp = false,
+                networkDataSaved = 0L
+            )
+            
             Log.d(TAG, "New relay $relayUrl: using 5-minute safety buffer")
             filter
         }

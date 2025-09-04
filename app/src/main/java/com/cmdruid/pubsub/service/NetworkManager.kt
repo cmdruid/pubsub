@@ -188,18 +188,27 @@ class NetworkManager(
      * Determine network quality based on capabilities
      */
     private fun getNetworkQuality(networkCapabilities: NetworkCapabilities?): String {
-        if (networkCapabilities == null) return "none"
+        if (networkCapabilities == null) {
+            sendDebugLog("⚠️ Network capabilities null - returning 'none'") // Keep as DEBUG - important for troubleshooting
+            return "none"
+        }
         
-        return when {
+        val quality = when {
             networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) "high" else "medium"
+                val isUnmetered = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                if (isUnmetered) "high" else "medium"
             }
             networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
-                if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) "high" else "low"
+                val isUnmetered = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                if (isUnmetered) "high" else "low"
             }
             networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "high"
             else -> "medium"
         }
+        
+        // Network quality determination is verbose - only log when it changes
+        // The sendDebugLog callback will route this appropriately
+        return quality
     }
     
     /**

@@ -221,6 +221,12 @@ class SettingsManager(private val context: Context) {
      */
     fun saveLogFilter(filter: LogFilter) {
         try {
+            // VALIDATION: Don't save corrupted filters
+            if (!isValidLogFilter(filter)) {
+                // Log the issue but don't save the corrupted filter
+                return
+            }
+            
             val json = gson.toJson(filter)
             sharedPrefs.edit().putString(KEY_LOG_FILTER, json).apply()
         } catch (e: Exception) {
@@ -235,14 +241,37 @@ class SettingsManager(private val context: Context) {
         return try {
             val json = sharedPrefs.getString(KEY_LOG_FILTER, null)
             if (json != null) {
-                gson.fromJson(json, LogFilter::class.java) ?: LogFilter.DEFAULT
+                val loadedFilter = gson.fromJson(json, LogFilter::class.java)
+                
+                // VALIDATION: Ensure loaded filter is not corrupted
+                if (loadedFilter != null && isValidLogFilter(loadedFilter)) {
+                    loadedFilter
+                } else {
+                    // Corrupted filter detected - return default and clear the bad data
+                    sharedPrefs.edit().remove(KEY_LOG_FILTER).apply()
+                    LogFilter.DEFAULT
+                }
             } else {
                 LogFilter.DEFAULT
             }
         } catch (e: Exception) {
-            // Return default filter if loading fails
+            // Return default filter if loading fails and clear corrupted data
+            try {
+                sharedPrefs.edit().remove(KEY_LOG_FILTER).apply()
+            } catch (clearException: Exception) {
+                // Ignore cleanup errors
+            }
             LogFilter.DEFAULT
         }
+    }
+    
+    /**
+     * Validate that a log filter is not corrupted
+     */
+    private fun isValidLogFilter(filter: LogFilter): Boolean {
+        return filter.enabledTypes.isNotEmpty() && 
+               filter.enabledDomains.isNotEmpty() && 
+               filter.maxLogs > 0
     }
     
     /**

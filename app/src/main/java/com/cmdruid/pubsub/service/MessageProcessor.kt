@@ -30,6 +30,7 @@ class MessageProcessor(
     private val subscriptionManager: SubscriptionManager,
     private val eventCache: EventCache,
     private val eventNotificationManager: EventNotificationManager,
+    private val metricsCollector: MetricsCollector,
     private val unifiedLogger: UnifiedLogger,
     private val sendDebugLog: (String) -> Unit
 ) {
@@ -145,16 +146,27 @@ class MessageProcessor(
             return
         }
         
-        // 2. Get current configuration
+        // 2. Get current configuration (with validation to prevent cross-subscription leakage)
         val configurationId = subscriptionManager.getConfigurationId(subscriptionId)
-        val configuration = if (configurationId != null) {
-            configurationManager.getConfigurationById(configurationId)
-        } else {
-            null
+        if (configurationId == null) {
+            unifiedLogger.warn(LogDomain.EVENT, "CRITICAL: No configuration ID for subscription $subscriptionId - potential cross-subscription bug!")
+            return
         }
         
-        if (configuration == null || !configuration.isEnabled) {
-            unifiedLogger.trace(LogDomain.EVENT, "Ignoring event: configuration not found or disabled for subscription $subscriptionId")
+        val configuration = configurationManager.getConfigurationById(configurationId)
+        if (configuration == null) {
+            unifiedLogger.warn(LogDomain.EVENT, "CRITICAL: Configuration $configurationId not found for subscription $subscriptionId - potential cross-subscription bug!")
+            return
+        }
+        
+        if (!configuration.isEnabled) {
+            unifiedLogger.trace(LogDomain.EVENT, "Ignoring event: configuration disabled for subscription $subscriptionId")
+            return
+        }
+        
+        // VALIDATION: Ensure subscription ID matches configuration
+        if (configuration.subscriptionId != subscriptionId) {
+            unifiedLogger.error(LogDomain.EVENT, "CRITICAL BUG: Subscription ID mismatch! Event subscription: $subscriptionId, Config subscription: ${configuration.subscriptionId}")
             return
         }
         
@@ -166,21 +178,56 @@ class MessageProcessor(
         
         // 4. Check for duplicate events
         if (eventCache.hasSeenEvent(event.id)) {
+            // Track duplicate detection metrics
+            metricsCollector.trackDuplicateEvent(
+                eventProcessed = false,
+                duplicateDetected = true,
+                duplicatePrevented = true,
+                usedPreciseTimestamp = false,
+                networkDataSaved = 1024 // Estimate saved bandwidth
+            )
             unifiedLogger.trace(LogDomain.EVENT, "Ignoring duplicate event: ${event.id.take(8)}...")
             return
         }
         
         // 5. Mark as seen and update PER-RELAY timestamp tracking
-        eventCache.markEventSeen(event.id)
+        val wasNewEvent = eventCache.markEventSeen(event.id)
+        if (!wasNewEvent) {
+            // This is a secondary duplicate check - EventCache found it was already processed
+            // This can happen with cross-session persistence or race conditions
+            metricsCollector.trackDuplicateEvent(
+                eventProcessed = false,
+                duplicateDetected = true,
+                duplicatePrevented = true,
+                usedPreciseTimestamp = false,
+                networkDataSaved = 1024 // Saved by not reprocessing
+            )
+            unifiedLogger.trace(LogDomain.EVENT, "Event ${event.id.take(8)}... already processed (cross-session or race condition)")
+            return
+        }
+        
         subscriptionManager.updateRelayTimestamp(subscriptionId, relayUrl, event.createdAt)
+        
+        // 6. Track event processing metrics
+        val lastTimestamp = subscriptionManager.getRelayTimestamp(subscriptionId, relayUrl)
+        val usedPreciseTimestamp = lastTimestamp != null && lastTimestamp > 0
+        
+        // Track the event processing (this was missing!)
+        metricsCollector.trackDuplicateEvent(
+            eventProcessed = true,
+            duplicateDetected = false, // We already filtered duplicates above
+            duplicatePrevented = false,
+            usedPreciseTimestamp = usedPreciseTimestamp
+        )
         
         unifiedLogger.debug(LogDomain.EVENT, "Processing event: ${event.id.take(8)}... from $relayUrl", mapOf(
             "configuration" to configuration.name,
             "event_kind" to NostrEvent.getKindName(event.kind),
-            "relay" to relayUrl.substringAfter("://").take(20)
+            "relay" to relayUrl.substringAfter("://").take(20),
+            "used_precise_timestamp" to usedPreciseTimestamp
         ))
         
-        // 6. Process the validated event
+        // 7. Process the validated event
         handleValidatedEvent(event, configuration, subscriptionId)
     }
     

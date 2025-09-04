@@ -137,7 +137,15 @@ class EventNotificationManager(
      * Show event notification with rate limiting and grouping
      */
     fun showEventNotification(event: NostrEvent, uri: Uri, configuration: Configuration, subscriptionId: String) {
-        unifiedLogger.debug(LogDomain.NOTIFICATION, "Processing notification for event: ${event.id.take(8)}... (${configuration.name})")
+        // CRITICAL VALIDATION: Ensure subscription ID matches configuration to prevent cross-subscription leakage
+        if (configuration.subscriptionId != subscriptionId) {
+            unifiedLogger.error(LogDomain.NOTIFICATION, 
+                "CRITICAL BUG: Cross-subscription notification detected! " +
+                "Event subscription: $subscriptionId, Config subscription: ${configuration.subscriptionId}, Config name: ${configuration.name}")
+            return
+        }
+        
+        unifiedLogger.debug(LogDomain.NOTIFICATION, "Processing notification for event: ${event.id.take(8)}... (${configuration.name}) [subscription: $subscriptionId]")
         val currentTime = System.currentTimeMillis()
         
         // Reset notification count every hour
@@ -181,9 +189,12 @@ class EventNotificationManager(
         // Clean up old notifications BEFORE checking duplicates and adding new ones
         cleanupOldNotifications()
         
-        // Create a unique notification ID based on event ID to prevent duplicates
-        // Use event ID hash combined with configuration ID to ensure uniqueness
-        val notificationId = "${event.id}_${configuration.id}".hashCode()
+        // Create a unique notification ID based on event ID AND subscription ID to prevent duplicates
+        // Include subscription ID to ensure cross-subscription isolation
+        val notificationId = "${event.id}_${configuration.id}_${subscriptionId}".hashCode().let { hash ->
+            // Ensure positive ID and avoid collision with system IDs
+            if (hash < 0) -hash + EVENT_NOTIFICATION_ID_BASE else hash + EVENT_NOTIFICATION_ID_BASE
+        }
         
         // Check if we already have a notification for this event
         if (activeNotifications.containsKey(notificationId)) {
@@ -232,7 +243,8 @@ class EventNotificationManager(
         lastNotificationTime = currentTime
         notificationCount++
         
-        unifiedLogger.info(LogDomain.NOTIFICATION, "Notification sent: ${configuration.name} [Event: ${event.id.take(8)}...] (#$notificationCount) [${activeNotifications.size}/20]")
+        unifiedLogger.info(LogDomain.NOTIFICATION, 
+            "Notification sent: ${configuration.name} [Event: ${event.id.take(8)}...] [Sub: $subscriptionId] (#$notificationCount) [${activeNotifications.size}/20]")
     }
     
     /**

@@ -107,6 +107,14 @@ class HealthMonitor(
                 "network_quality" to networkQuality,
                 "thresholds_used" to thresholds.getSummary()
             ))
+            
+            // Log which relays are being triggered for reconnection
+            unhealthyRelays.forEach { (relayUrl, health) ->
+                val shortUrl = relayUrl.substringAfter("://").take(20)
+                val reason = getUnhealthyReason(health, thresholds)
+                unifiedLogger.warn(LogDomain.HEALTH, "Triggering reconnection for $shortUrl: $reason")
+            }
+            
             relayConnectionManager.refreshConnections()
         } else {
             unifiedLogger.debug(LogDomain.HEALTH, "All connections healthy with dynamic thresholds")

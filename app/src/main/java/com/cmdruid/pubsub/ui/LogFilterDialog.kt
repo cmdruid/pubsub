@@ -25,6 +25,7 @@ class LogFilterDialog(
     private lateinit var binding: DialogLogFilterBinding
     private val typeSwitches = mutableMapOf<LogType, SwitchMaterial>()
     private val domainSwitches = mutableMapOf<LogDomain, SwitchMaterial>()
+    private var isInitializing = true  // Prevent filter corruption during setup
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,8 +34,9 @@ class LogFilterDialog(
         setContentView(binding.root)
         
         setupUI()
-        setupListeners()
-        loadCurrentFilter()
+        loadCurrentFilter()  // Load current filter BEFORE setting up listeners
+        setupListeners()     // Set up listeners AFTER switches are properly initialized
+        isInitializing = false  // Now safe to apply real-time filtering
     }
 
     private fun setupUI() {
@@ -133,9 +135,39 @@ class LogFilterDialog(
     }
 
     private fun applyFilter() {
+        // CRITICAL FIX: Don't apply filter during initialization to prevent corruption
+        if (isInitializing) {
+            return
+        }
+        
         val enabledTypes = typeSwitches.filter { it.value.isChecked }.keys.toSet()
         val enabledDomains = domainSwitches.filter { it.value.isChecked }.keys.toSet()
         val maxLogs = binding.maxLogsSlider.value.toInt()
+
+        // VALIDATION: Ensure we don't create an empty filter
+        if (enabledTypes.isEmpty()) {
+            // If no types are enabled, default to ERROR and WARN to prevent total log loss
+            val safeTypes = setOf(LogType.ERROR, LogType.WARN)
+            val newFilter = LogFilter(
+                enabledTypes = safeTypes,
+                enabledDomains = enabledDomains.ifEmpty { setOf(LogDomain.SYSTEM) },
+                maxLogs = maxLogs
+            )
+            onFilterChanged(newFilter)
+            return
+        }
+        
+        if (enabledDomains.isEmpty()) {
+            // If no domains are enabled, default to SYSTEM domain to prevent total log loss
+            val safeDomains = setOf(LogDomain.SYSTEM)
+            val newFilter = LogFilter(
+                enabledTypes = enabledTypes,
+                enabledDomains = safeDomains,
+                maxLogs = maxLogs
+            )
+            onFilterChanged(newFilter)
+            return
+        }
 
         val newFilter = LogFilter(
             enabledTypes = enabledTypes,

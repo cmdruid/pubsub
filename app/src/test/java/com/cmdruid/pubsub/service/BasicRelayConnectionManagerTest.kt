@@ -41,6 +41,7 @@ class BasicRelayConnectionManagerTest {
             subscriptionManager = mockSubscriptionManager,
             batteryPowerManager = mockBatteryPowerManager,
             networkManager = mockNetworkManager,
+            metricsCollector = mockk(relaxed = true),
             onMessageReceived = { _, _, _ -> },
             sendDebugLog = { _ -> }
         )
