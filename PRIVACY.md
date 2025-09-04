@@ -1,7 +1,7 @@
 # Privacy Policy for PubSub - Nostr Push Notifications
 
 **Last updated: December 2024**  
-**App Version: 0.9.6**
+**App Version: 0.9.7**
 
 ## Overview
 

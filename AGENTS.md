@@ -200,7 +200,7 @@ Comprehensive settings management with:
 ### Build Configuration
 - **Target SDK**: 34 (Android 14)
 - **Min SDK**: 27 (Android 8.1)
-- **Current Version**: 0.9.6 (Beta Ready)
+- **Current Version**: 0.9.7 (Beta Ready)
 - **Language**: Kotlin with Java 21 target
 - **Package**: `com.cmdruid.pubsub`
 - **Build Variants**: Debug (`com.cmdruid.pubsub.debug`) and Release
@@ -224,7 +224,7 @@ Comprehensive settings management with:
 
 ## Development Status
 
-### ✅ Completed Features (v0.9.6 - Beta Ready)
+### ✅ Completed Features (v0.9.7 - Beta Ready)
 - **Core Infrastructure**:
   - Full Android project setup with Kotlin DSL and Java 21
   - Multi-configuration subscription management with individual controls
@@ -380,7 +380,7 @@ Comprehensive settings management with:
 - **State Management**: Proper handling of configuration and service states
 - **Accessibility Support**: Proper content descriptions and navigation support
 
-## Major Updates (v0.9.6 - Beta Release)
+## Major Updates (v0.9.7 - Beta Release)
 
 ### Complete Architecture Modernization
 The application has undergone a complete architectural overhaul:
