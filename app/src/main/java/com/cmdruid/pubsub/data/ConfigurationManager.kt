@@ -185,17 +185,16 @@ class ConfigurationManager(context: Context) {
     }
     
     /**
-     * Get formatted structured logs for export
+     * Get formatted structured logs for export with comprehensive diagnostics
      */
     fun getFormattedDebugLogsForExport(filter: LogFilter? = null): String {
         val logs = if (filter != null) getFilteredLogs(filter) else structuredLogs
-        if (logs.isEmpty()) {
-            return "No debug logs available."
-        }
+        val timestamp = System.currentTimeMillis()
+        val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
         
         val sb = StringBuilder()
         sb.appendLine("PubSub Structured Debug Logs Export")
-        sb.appendLine("Generated: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
+        sb.appendLine("Generated: ${dateFormatter.format(java.util.Date(timestamp))}")
         sb.appendLine("Total logs: ${logs.size}")
         if (filter != null) {
             sb.appendLine("Filter: Types=${filter.enabledTypes.joinToString(",") { it.name }}, Domains=${filter.enabledDomains.joinToString(",") { it.name }}")
@@ -203,6 +202,28 @@ class ConfigurationManager(context: Context) {
         sb.appendLine("=".repeat(80))
         sb.appendLine()
         
+        // BASIC: Add essential device and system information
+        sb.appendLine("📱 DEVICE INFORMATION:")
+        sb.appendLine("   Export Timestamp: $timestamp")
+        sb.appendLine("   App Version: 0.9.7")
+        sb.appendLine("   Android Version: ${android.os.Build.VERSION.RELEASE}")
+        sb.appendLine("   Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+        sb.appendLine("   Total Configurations: ${getConfigurations().size}")
+        sb.appendLine("   Enabled Configurations: ${getEnabledConfigurations().size}")
+        sb.appendLine()
+        
+        // Basic log statistics
+        val logsByType = logs.groupBy { it.type }.mapValues { it.value.size }
+        val logsByDomain = logs.groupBy { it.domain }.mapValues { it.value.size }
+        sb.appendLine("📈 LOG SUMMARY:")
+        sb.appendLine("   By Type: $logsByType")
+        sb.appendLine("   By Domain: $logsByDomain")
+        sb.appendLine()
+        
+        sb.appendLine("=".repeat(80))
+        sb.appendLine()
+        
+        // Original logs
         logs.reversed().forEach { entry ->
             sb.appendLine(entry.toDetailedString())
         }

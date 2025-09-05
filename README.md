@@ -2,7 +2,7 @@
   <img src="assets/pubsub-icon.png" alt="PubSub Logo" width="120" height="120">
   
   # pubsub
-  
+ t 
   Keep your self (and your sleepy apps) subscribed to the nostr fire-hose.
   
   [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)

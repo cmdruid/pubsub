@@ -35,6 +35,10 @@ class TestWebSocketServer {
     private val processedMessages = mutableListOf<String>()
     private val generatedResponses = mutableListOf<String>()
     
+    // Advanced testing features
+    private var networkInterrupted = false
+    private val eventQueue = mutableListOf<Pair<NostrEvent, String>>()
+    
     /**
      * Start the test server
      * Returns the base URL for testing
@@ -384,6 +388,52 @@ class TestWebSocketServer {
     }
     
     /**
+     * Send an event to a specific subscription (for testing)
+     */
+    fun sendEvent(event: NostrEvent, subscriptionId: String) {
+        if (networkInterrupted) {
+            // Queue event for later delivery
+            eventQueue.add(event to subscriptionId)
+            println("[$TAG] Event queued due to network interruption: ${event.content.take(50)}")
+            return
+        }
+        
+        // Store event in relay
+        eventStore[event.id] = event
+        
+        // Send to active subscription if it exists
+        if (activeSubscriptions.containsKey(subscriptionId)) {
+            val eventMessage = buildEventMessage(subscriptionId, event)
+            generatedResponses.add(eventMessage)
+            println("[$TAG] Event sent to subscription $subscriptionId: ${event.content.take(50)}")
+        } else {
+            println("[$TAG] No active subscription $subscriptionId for event: ${event.content.take(50)}")
+        }
+    }
+    
+    /**
+     * Simulate network interruption
+     */
+    fun simulateNetworkInterruption(duration: Long) {
+        networkInterrupted = true
+        println("[$TAG] Network interruption started for ${duration}ms")
+    }
+    
+    /**
+     * Restore network and send queued events
+     */
+    fun restoreNetwork() {
+        networkInterrupted = false
+        println("[$TAG] Network restored, sending ${eventQueue.size} queued events")
+        
+        // Send all queued events
+        eventQueue.forEach { (event, subscriptionId) ->
+            sendEvent(event, subscriptionId)
+        }
+        eventQueue.clear()
+    }
+    
+    /**
      * Clear all server state
      */
     fun clearState() {
@@ -391,6 +441,8 @@ class TestWebSocketServer {
         activeSubscriptions.clear()
         processedMessages.clear()
         generatedResponses.clear()
+        eventQueue.clear()
+        networkInterrupted = false
         println("[$TAG] Cleared all server state")
     }
     

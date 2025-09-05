@@ -167,6 +167,121 @@ class MetricsReader(
     }
     
     /**
+     * Generate enhanced metrics report with comprehensive diagnostics
+     * This is called by the existing metrics export functionality
+     */
+    suspend fun generateEnhancedMetricsReport(): EnhancedMetricsReport? = withContext(Dispatchers.IO) {
+        if (!isEnabled()) return@withContext null
+        
+        try {
+            val currentTime = System.currentTimeMillis()
+            val startTime = prefs.getLong("start_time", currentTime)
+            
+            // Generate standard metrics report
+            val standardReport = generateMetricsReport()
+            
+            // Add comprehensive system diagnostics
+            val systemDiagnostics = generateSystemDiagnostics()
+            val loggingDiagnostics = generateLoggingDiagnostics()
+            
+            EnhancedMetricsReport(
+                standardMetrics = standardReport,
+                systemDiagnostics = systemDiagnostics,
+                loggingDiagnostics = loggingDiagnostics,
+                exportTimestamp = currentTime
+            )
+        } catch (e: Exception) {
+            println("[$TAG] Error generating enhanced report: ${e.message}")
+            null
+        }
+    }
+    
+    private fun generateSystemDiagnostics(): SystemDiagnostics {
+        return try {
+            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val runtime = Runtime.getRuntime()
+            
+            SystemDiagnostics(
+                deviceManufacturer = android.os.Build.MANUFACTURER,
+                deviceModel = android.os.Build.MODEL,
+                androidVersion = android.os.Build.VERSION.RELEASE,
+                sdkVersion = android.os.Build.VERSION.SDK_INT,
+                appVersion = "0.9.7",
+                batteryLevel = batteryManager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY),
+                isCharging = batteryManager.isCharging,
+                batteryStatus = getBatteryStatusString(batteryManager),
+                networkAvailable = connectivityManager.activeNetwork != null,
+                networkType = connectivityManager.activeNetworkInfo?.typeName ?: "unknown",
+                networkConnected = connectivityManager.activeNetworkInfo?.isConnected ?: false,
+                usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024,
+                totalMemoryMB = runtime.totalMemory() / 1024 / 1024,
+                maxMemoryMB = runtime.maxMemory() / 1024 / 1024,
+                timestamp = System.currentTimeMillis()
+            )
+        } catch (e: Exception) {
+            // Return minimal diagnostics if there's an error
+            SystemDiagnostics(
+                deviceManufacturer = "unknown",
+                deviceModel = "unknown", 
+                androidVersion = "unknown",
+                sdkVersion = 0,
+                appVersion = "0.9.7",
+                batteryLevel = -1,
+                isCharging = false,
+                batteryStatus = "unknown",
+                networkAvailable = false,
+                networkType = "unknown",
+                networkConnected = false,
+                usedMemoryMB = 0,
+                totalMemoryMB = 0,
+                maxMemoryMB = 0,
+                timestamp = System.currentTimeMillis()
+            )
+        }
+    }
+    
+    private fun generateLoggingDiagnostics(): LoggingDiagnostics {
+        return try {
+            val logFilter = settingsManager.getLogFilter()
+            
+            LoggingDiagnostics(
+                filterValid = logFilter.enabledTypes.isNotEmpty() && logFilter.enabledDomains.isNotEmpty(),
+                enabledTypes = logFilter.enabledTypes.map { it.name },
+                enabledDomains = logFilter.enabledDomains.map { it.name },
+                maxLogs = logFilter.maxLogs,
+                debugConsoleVisible = settingsManager.shouldShowDebugConsole(),
+                timestamp = System.currentTimeMillis()
+            )
+        } catch (e: Exception) {
+            LoggingDiagnostics(
+                filterValid = false,
+                enabledTypes = emptyList(),
+                enabledDomains = emptyList(),
+                maxLogs = 0,
+                debugConsoleVisible = false,
+                timestamp = System.currentTimeMillis()
+            )
+        }
+    }
+    
+    private fun getBatteryStatusString(batteryManager: android.os.BatteryManager): String {
+        return try {
+            val status = batteryManager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_STATUS)
+            when (status) {
+                android.os.BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
+                android.os.BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
+                android.os.BatteryManager.BATTERY_STATUS_FULL -> "Full"
+                android.os.BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not Charging"
+                android.os.BatteryManager.BATTERY_STATUS_UNKNOWN -> "Unknown"
+                else -> "Unknown ($status)"
+            }
+        } catch (e: Exception) {
+            "Error: ${e.message}"
+        }
+    }
+
+    /**
      * Clear all metrics data (non-blocking)
      */
     fun clearAllData() {
@@ -250,5 +365,40 @@ class MetricsReader(
         val networkDataSavedBytes: Long,
         val preciseTimestampUsage: Long,
         val preciseTimestampRate: Double
+    )
+    
+    // Enhanced metrics report with comprehensive diagnostics
+    data class EnhancedMetricsReport(
+        val standardMetrics: MetricsReport?,
+        val systemDiagnostics: SystemDiagnostics,
+        val loggingDiagnostics: LoggingDiagnostics,
+        val exportTimestamp: Long
+    )
+    
+    data class SystemDiagnostics(
+        val deviceManufacturer: String,
+        val deviceModel: String,
+        val androidVersion: String,
+        val sdkVersion: Int,
+        val appVersion: String,
+        val batteryLevel: Int,
+        val isCharging: Boolean,
+        val batteryStatus: String,
+        val networkAvailable: Boolean,
+        val networkType: String,
+        val networkConnected: Boolean,
+        val usedMemoryMB: Long,
+        val totalMemoryMB: Long,
+        val maxMemoryMB: Long,
+        val timestamp: Long
+    )
+    
+    data class LoggingDiagnostics(
+        val filterValid: Boolean,
+        val enabledTypes: List<String>,
+        val enabledDomains: List<String>,
+        val maxLogs: Int,
+        val debugConsoleVisible: Boolean,
+        val timestamp: Long
     )
 }

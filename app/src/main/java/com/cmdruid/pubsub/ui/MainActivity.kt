@@ -1010,15 +1010,16 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
         
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val report = metricsReader.generateMetricsReport()
-                if (report == null) {
+                // Use enhanced metrics report with comprehensive diagnostics
+                val enhancedReport = metricsReader.generateEnhancedMetricsReport()
+                if (enhancedReport == null) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@MainActivity, "No metrics data to export", Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
                 
-                val metricsJson = com.google.gson.Gson().toJson(report)
+                val metricsJson = com.google.gson.Gson().toJson(enhancedReport)
                 
                 contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(metricsJson.toByteArray())
