@@ -1,3 +1,4 @@
+
 name: Publish a new release
 
 on:
@@ -11,9 +12,22 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Checkout the repository
+      # Checkout the repository at the specific tag
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      # Verify we're on the correct commit
+      - name: Verify checkout
+        run: |
+          echo "🔍 Verifying checkout..."
+          echo "Git ref: ${{ github.ref }}"
+          echo "Git SHA: $(git rev-parse HEAD)"
+          echo "Git tag: $(git describe --tags --exact-match HEAD 2>/dev/null || echo 'No exact tag match')"
+          echo "Current branch: $(git branch --show-current || echo 'Detached HEAD')"
+          echo "Commit message: $(git log -1 --pretty=format:'%s')"
+          echo "Commit date: $(git log -1 --pretty=format:'%ci')"
 
       # Set up JDK 21
       - name: Set up JDK 21
@@ -81,7 +95,10 @@ jobs:
       # Update version in build.gradle.kts
       - name: Update version in build.gradle.kts
         run: |
+          echo "📝 Updating version in build.gradle.kts to: ${{ env.VERSION }}"
           sed -i "s/versionName = \".*\"/versionName = \"${{ env.VERSION }}\"/" app/build.gradle.kts
+          echo "✅ Version updated. Current build.gradle.kts version:"
+          grep "versionName" app/build.gradle.kts
 
       # Build release APK
       - name: Build release APK
@@ -94,6 +111,32 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      # Verify APK version
+      - name: Verify APK version
+        run: |
+          echo "🔍 Verifying APK version..."
+          # Find the APK file
+          APK_PATH=$(find app/build/outputs/apk/release -name "pubsub-*-release*.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find app/build/outputs/apk/release -name "app-release*.apk" | head -1)
+          fi
+          
+          if [ -f "$APK_PATH" ]; then
+            echo "📦 APK found: $APK_PATH"
+            echo "📏 APK size: $(ls -lh "$APK_PATH" | awk '{print $5}')"
+            echo "📅 APK modified: $(ls -l "$APK_PATH" | awk '{print $6, $7, $8}')"
+            
+            # Extract version info from APK (if aapt is available)
+            if command -v aapt >/dev/null 2>&1; then
+              echo "📋 APK version info:"
+              aapt dump badging "$APK_PATH" | grep -E "(package|versionName)" || echo "Could not extract version info"
+            else
+              echo "ℹ️  aapt not available for version extraction"
+            fi
+          else
+            echo "❌ No APK found to verify"
+          fi
 
       # Extract changelog entry for the version
       - name: Extract changelog

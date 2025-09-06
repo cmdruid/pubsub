@@ -11,6 +11,9 @@
     <color name="terminal_orange_primary">#e9906e</color>
     <color name="terminal_orange_secondary">#f5ce8d</color>
     <color name="terminal_green">#7EC699</color>
+    <color name="terminal_green_secondary">#7EC699</color>
+    <color name="terminal_blue_secondary">#9BB5CC</color>
+    <color name="terminal_red_secondary">#FFB4AB</color>
     
     <!-- Dark Theme Colors based on #29455b -->
     <color name="md_theme_dark_primary">#e9906e</color>

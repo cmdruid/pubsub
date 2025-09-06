@@ -32,13 +32,21 @@ class MessageProcessor(
     private val eventNotificationManager: EventNotificationManager,
     private val metricsCollector: MetricsCollector,
     private val unifiedLogger: UnifiedLogger,
-    private val sendDebugLog: (String) -> Unit
+    private val sendDebugLog: (String) -> Unit,
+    private val relayConnectionManager: RelayConnectionManager? = null
 ) {
     
     companion object {
         private const val TAG = "MessageProcessor"
         private const val MAX_QUEUE_SIZE = 100 // Prevent memory issues
+        private const val MAX_UNMATCHED_EVENTS_BEFORE_CANCELLATION = 5 // Cancel after 5 unmatched events
     }
+    
+    // Lightweight tracker for subscription cancellations
+    private val cancellationTracker = SubscriptionCancellationTracker(unifiedLogger)
+    
+    // Track unmatched events per subscription to detect unwanted subscriptions
+    private val unmatchedEventCounts = mutableMapOf<String, Int>()
     
     // BATTERY OPTIMIZATION: Message queue to batch process messages during high volume
     private val messageQueue = mutableListOf<QueuedMessage>()
@@ -173,6 +181,13 @@ class MessageProcessor(
         // 3. Validate event structure
         if (!event.isValid()) {
             unifiedLogger.warn(LogDomain.EVENT, "Invalid event rejected: ${event.id.take(8)}...")
+            // Track parsing error
+            metricsCollector.trackError(
+                errorType = ErrorType.PARSING,
+                relayUrl = relayUrl,
+                subscriptionId = subscriptionId,
+                errorMessage = "Invalid event structure: ${event.id.take(8)}"
+            )
             return
         }
         
@@ -218,6 +233,14 @@ class MessageProcessor(
             duplicateDetected = false, // We already filtered duplicates above
             duplicatePrevented = false,
             usedPreciseTimestamp = usedPreciseTimestamp
+        )
+        
+        // Track event flow for subscription health monitoring
+        metricsCollector.trackEventFlow(
+            subscriptionId = subscriptionId,
+            relayUrl = relayUrl,
+            eventsReceived = 1,
+            timeSpan = 60000 // 1 minute window for flow rate calculation
         )
         
         unifiedLogger.debug(LogDomain.EVENT, "Processing event: ${event.id.take(8)}... from $relayUrl", mapOf(

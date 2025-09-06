@@ -119,6 +119,19 @@ class RelayConnectionManager(
     }
     
     /**
+     * Send subscription cancellation message to a specific relay
+     */
+    fun cancelSubscription(subscriptionId: String, relayUrl: String): Boolean {
+        val manager = relayManagers[relayUrl]
+        return if (manager != null) {
+            manager.cancelSubscription(subscriptionId)
+        } else {
+            sendDebugLog("⚠️ Cannot cancel subscription $subscriptionId: no connection to $relayUrl")
+            false
+        }
+    }
+    
+    /**
      * Get connection health for all relays
      */
     fun getConnectionHealth(): Map<String, RelayHealth> {
@@ -359,8 +372,24 @@ class SingleRelayManager(
                 
                 if (success) {
                     sendDebugLog("📋 Subscription sent to $shortUrl (since: ${updatedFilter.since})")
+                    // Track successful subscription renewal
+                    metricsCollector.trackSubscriptionRenewal(
+                        subscriptionId = subscriptionId,
+                        relayUrl = relayUrl,
+                        success = true,
+                        delay = 0, // Immediate renewal
+                        reason = "Connection established"
+                    )
                 } else {
                     sendDebugLog("❌ Failed to send subscription to $shortUrl - this will cause missing events!")
+                    // Track failed subscription renewal
+                    metricsCollector.trackSubscriptionRenewal(
+                        subscriptionId = subscriptionId,
+                        relayUrl = relayUrl,
+                        success = false,
+                        delay = 0,
+                        reason = "Failed to send subscription message"
+                    )
                 }
             }
             
@@ -378,8 +407,13 @@ class SingleRelayManager(
                     if (text.contains("\"$capturedSubscriptionId\"") || text.startsWith("[\"EVENT\",\"$capturedSubscriptionId\"")) {
                         onMessageReceived(text, capturedSubscriptionId, relayUrl)
                     } else {
-                        // This could indicate a cross-subscription issue
+                        // This could indicate a cross-subscription issue or unwanted subscription
                         sendDebugLog("⚠️ Message received but doesn't match subscription $capturedSubscriptionId: ${text.take(50)}...")
+                        
+                        // Check if this is an EVENT message for a different subscription
+                        if (text.startsWith("[\"EVENT\"")) {
+                            handleUnmatchedEventMessage(text, capturedSubscriptionId, relayUrl)
+                        }
                     }
                 } else {
                     sendDebugLog("⚠️ Message received but no active subscription for $shortUrl")
@@ -416,6 +450,14 @@ class SingleRelayManager(
                 }
                 
                 sendDebugLog("❌ $shortUrl failed (attempt $reconnectAttempts): ${t.message}")
+                
+                // Track WebSocket connection error
+                metricsCollector.trackError(
+                    errorType = ErrorType.WEBSOCKET,
+                    relayUrl = relayUrl,
+                    subscriptionId = subscriptionId,
+                    errorMessage = "Connection failed: ${t.message}"
+                )
                 
                 // Smart reconnection based on network conditions
                 if (shouldAttemptReconnect()) {
@@ -464,6 +506,73 @@ class SingleRelayManager(
         connectionState = ConnectionState.DISCONNECTED
         currentSubscriptionId = null
         subscriptionConfirmed = false
+    }
+    
+    /**
+     * Send subscription cancellation message
+     */
+    fun cancelSubscription(subscriptionId: String): Boolean {
+        val webSocket = this.webSocket
+        return if (webSocket != null && connectionState == ConnectionState.CONNECTED) {
+            val closeMessage = NostrMessage.createClose(subscriptionId)
+            val success = webSocket.send(closeMessage)
+            
+            if (success) {
+                val shortUrl = relayUrl.substringAfter("://").take(20)
+                sendDebugLog("❌ Sent cancellation for subscription $subscriptionId to $shortUrl")
+                
+                // Track cancellation in metrics
+                metricsCollector.trackSubscriptionRenewal(
+                    subscriptionId = subscriptionId,
+                    relayUrl = relayUrl,
+                    success = true,
+                    delay = 0,
+                    reason = "Subscription cancelled due to unmatched events"
+                )
+            } else {
+                sendDebugLog("❌ Failed to send cancellation for subscription $subscriptionId to $relayUrl")
+                
+                // Track failed cancellation
+                metricsCollector.trackSubscriptionRenewal(
+                    subscriptionId = subscriptionId,
+                    relayUrl = relayUrl,
+                    success = false,
+                    delay = 0,
+                    reason = "Failed to send cancellation message"
+                )
+            }
+            
+            success
+        } else {
+            sendDebugLog("⚠️ Cannot cancel subscription $subscriptionId: not connected to $relayUrl")
+            false
+        }
+    }
+    
+    /**
+     * Handle unmatched event messages that don't belong to our subscription
+     */
+    private fun handleUnmatchedEventMessage(messageText: String, ourSubscriptionId: String, relayUrl: String) {
+        try {
+            // Parse the message to extract the subscription ID
+            val parsedMessage = NostrMessage.parseMessage(messageText)
+            if (parsedMessage is NostrMessage.ParsedMessage.EventMessage) {
+                val unmatchedSubscriptionId = parsedMessage.subscriptionId
+                
+                // Only process if it's a different subscription ID
+                if (unmatchedSubscriptionId != ourSubscriptionId) {
+                    sendDebugLog("🚫 Unmatched event from subscription $unmatchedSubscriptionId (we're subscribed to $ourSubscriptionId)")
+                    
+                    // Send cancellation message for the unmatched subscription
+                    val success = cancelSubscription(unmatchedSubscriptionId)
+                    if (success) {
+                        sendDebugLog("✅ Cancelled unwanted subscription $unmatchedSubscriptionId")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            sendDebugLog("⚠️ Error handling unmatched event message: ${e.message}")
+        }
     }
     
     /**

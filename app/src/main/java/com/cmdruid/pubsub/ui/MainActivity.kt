@@ -932,8 +932,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
             
             // Update duplicate event metrics
             report.duplicateEventReport?.let { duplicate ->
+                val totalDuplicates = duplicate.duplicatesDetected + duplicate.duplicatesPrevented
                 binding.duplicatesPreventedText.text = 
-                    "${duplicate.duplicatesPrevented} / ${duplicate.duplicatesDetected} (${String.format("%.1f", duplicate.preventionRate)}%)"
+                    "${duplicate.duplicatesPrevented} / ${totalDuplicates} (${String.format("%.1f", duplicate.preventionRate)}%)"
                 
                 // Format network data saved
                 val dataSavedKB = duplicate.networkDataSavedBytes / 1024.0
@@ -946,6 +947,33 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                 binding.duplicatesPreventedText.text = "-- / -- (---%)"
                 binding.networkDataSavedText.text = "-- KB"
             }
+            
+            // Update subscription metrics
+            report.subscriptionReport?.let { subscription ->
+                val totalRenewals = subscription.subscriptionRenewals + subscription.subscriptionRenewalFailures
+                binding.subscriptionRenewalsText.text = 
+                    "${subscription.subscriptionRenewals} / ${totalRenewals} (${String.format("%.1f", subscription.renewalSuccessRate)}%)"
+                
+                binding.eventFlowRateText.text = 
+                    "${String.format("%.1f", subscription.averageEventFlowRate)} events/min"
+            } ?: run {
+                binding.subscriptionRenewalsText.text = "-- / -- (---%)"
+                binding.eventFlowRateText.text = "-- events/min"
+            }
+            
+                    // Update error metrics
+        report.errorReport?.let { error ->
+            binding.totalErrorsText.text = "${error.totalErrors}"
+        } ?: run {
+            binding.totalErrorsText.text = "--"
+        }
+
+        // Update notification rate limit metrics
+        report.notificationReport?.let { notification ->
+            binding.rateLimitsText.text = "${notification.totalRateLimits}"
+        } ?: run {
+            binding.rateLimitsText.text = "--"
+        }
             
         } catch (e: Exception) {
             // Silently handle UI update errors
@@ -990,6 +1018,9 @@ class MainActivity : AppCompatActivity(), SettingsManager.SettingsChangeListener
                             generationTimeMs = 0,
                             batteryReport = null,
                             connectionReport = null,
+                            subscriptionReport = null,
+                            errorReport = null,
+                            notificationReport = null,
                             duplicateEventReport = null
                         ))
                     }

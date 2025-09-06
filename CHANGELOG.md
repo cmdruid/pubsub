@@ -1,5 +1,95 @@
 # Changelog
 
+## [0.9.9] - 2025-01-04
+
+### 🚫 Subscription Cancellation System
+
+- **NEW: Automatic Subscription Cancellation**: Automatically detect and cancel unwanted subscriptions
+  - Detects events from subscriptions that don't match active configurations
+  - Sends CLOSE messages to relays to stop receiving unwanted events
+  - Lightweight memory cache with automatic cleanup to prevent memory bloat
+  - Comprehensive logging and metrics tracking for cancellation events
+
+- **NEW: SubscriptionCancellationTracker**: Memory-efficient cancellation tracking
+  - Maximum 1000 cancelled subscription IDs in memory with LRU eviction
+  - Automatic cleanup every 5 minutes to prevent memory bloat
+  - Thread-safe concurrent access for high-performance scenarios
+  - Detailed statistics tracking (total cancellations, recent activity, memory usage)
+
+- **NEW: Enhanced RelayConnectionManager**: Subscription cancellation capabilities
+  - `cancelSubscription()` method to send CLOSE messages to relays
+  - Automatic detection of unmatched event messages
+  - Integration with metrics system for cancellation tracking
+  - Graceful handling of connection failures during cancellation
+
+### 📊 Enhanced Diagnostic Metrics
+
+- **NEW: Rate Limit Tracking**: Monitor notification rate limiting events
+  - Tracks hourly notification limits (200 notifications/hour)
+  - Tracks frequency-based rate limits (configurable intervals)
+  - Detailed reasons for each rate limit (hourly exceeded, time limit exceeded)
+  - Per-subscription and per-relay rate limit tracking
+
+- **ENHANCED: Performance Metrics UI**: Integrated diagnostic metrics into existing Performance Metrics section
+  - Added "Rate Limits Hit" metric with orange color coding
+  - Merged diagnostic metrics into unified Performance Metrics card
+  - Consistent styling and layout with existing metrics
+  - Real-time display of rate limit events
+
+### 🧪 Comprehensive Test Coverage
+
+- **NEW: Subscription Cancellation Test Suite**: Complete test coverage for cancellation functionality
+  - **SubscriptionCancellationTrackerTest**: 8 unit tests covering core tracking logic
+  - **SubscriptionCancellationIntegrationTest**: 8 integration tests for message processing
+  - **RelayConnectionManagerCancellationTest**: Component tests for relay management
+  - **SubscriptionCancellationTestSuite**: Organized test suite with 17 total tests
+
+- **TEST COVERAGE**: All cancellation functionality thoroughly tested
+  - Memory management and cleanup scenarios
+  - Concurrent access and thread safety
+  - Edge cases (invalid messages, duplicates, disabled configs)
+  - Integration with existing message processing pipeline
+
+### 🔧 Technical Improvements
+
+- **ENHANCED: Message Processing Pipeline**: Improved handling of unmatched events
+  - Automatic detection of events from unwanted subscriptions
+  - Immediate cancellation of detected unwanted subscriptions
+  - Comprehensive error handling and logging
+  - Integration with existing metrics and notification systems
+
+- **OPTIMIZED: Memory Management**: Lightweight cancellation tracking
+  - Efficient storage using ConcurrentHashMap for thread safety
+  - Automatic cleanup with configurable intervals
+  - Size limits with intelligent eviction policies
+  - Minimal memory footprint with maximum 1000 tracked subscriptions
+
+## [0.9.8] - 2025-01-04
+
+### 🧪 Android Test Framework Integration
+
+- **COMPLETED: Subscription Testing Framework**: Fully integrated subscription testing into Android test framework
+  - All subscription tests now run with standard `./gradlew test` commands
+  - TestWebSocketServer provides automated subscription testing with mock Nostr relay
+  - Comprehensive test coverage with 48 tests covering all critical subscription functionality
+  - 100% test success rate after fixing subscription isolation test validation
+  - Enhanced diagnostic exports with system information and logging state
+
+### 🔧 Test Framework Improvements
+
+- **FIXED: Subscription Isolation Test**: Resolved content validation mismatch in multi-subscription testing
+  - Fixed assertion logic to properly validate event content isolation
+  - Ensured multiple subscriptions receive only their own events (no cross-contamination)
+  - Validated TestWebSocketServer correctly handles multiple concurrent subscriptions
+
+### 📊 Enhanced Testing Capabilities
+
+- **NEW: Automated Test Execution**: Complete test suite available for subscription validation
+  - Run all subscription tests: `./gradlew testDebugUnitTest --tests="com.cmdruid.pubsub.integration.SubscriptionIntegrationTestSuite"`
+  - Run specific test categories: core reliability, automated testing, health monitoring
+  - Get test relay URLs for manual testing with real device integration
+  - CI/CD ready with proper test reporting and build integration
+
 ## [0.9.7] - 2025-01-04
 
 ### 🔧 Critical Bug Fixes

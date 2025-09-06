@@ -354,7 +354,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Duplicates Detected"
+                            android:text="Duplicates Prevented"
                             android:textSize="14sp" />
 
                         <TextView
@@ -372,7 +372,8 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
 
                         <TextView
                             android:layout_width="0dp"
@@ -386,6 +387,105 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="-- KB"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/terminal_orange_secondary" />
+
+                    </LinearLayout>
+
+                    <!-- Subscription Renewals Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Subscription Renewals"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/subscriptionRenewalsText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="-- / -- (---%)"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/terminal_green_secondary" />
+
+                    </LinearLayout>
+
+                    <!-- Event Flow Rate Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Event Flow Rate"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/eventFlowRateText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="-- events/min"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/terminal_blue_secondary" />
+
+                    </LinearLayout>
+
+                    <!-- Error Count Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Total Errors"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/totalErrorsText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="--"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/terminal_red_secondary" />
+
+                    </LinearLayout>
+
+                    <!-- Rate Limits Row -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Rate Limits Hit"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/rateLimitsText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="--"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:textColor="@color/terminal_orange_secondary" />

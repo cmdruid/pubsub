@@ -258,6 +258,7 @@ class PubSubService : Service() {
         eventNotificationManager = EventNotificationManager(
             context = this,
             settingsManager = settingsManager,
+            metricsCollector = metricsCollector,
             sendDebugLog = { message -> unifiedLogger.debug(LogDomain.NOTIFICATION, message) },
             unifiedLogger = unifiedLogger
         )
@@ -290,7 +291,8 @@ class PubSubService : Service() {
             eventNotificationManager = eventNotificationManager,
             metricsCollector = metricsCollector,
             unifiedLogger = unifiedLogger,
-            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.EVENT, message) }
+            sendDebugLog = { message -> unifiedLogger.debug(LogDomain.EVENT, message) },
+            relayConnectionManager = relayConnectionManager
         )
         
         // Initialize ENHANCED health monitoring component with testable architecture

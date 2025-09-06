@@ -17,6 +17,9 @@ class MetricsSystemTest {
             generationTimeMs = 50,
             batteryReport = null,
             connectionReport = null,
+            subscriptionReport = null,
+            errorReport = null,
+            notificationReport = null,
             duplicateEventReport = null
         )
         
@@ -121,6 +124,9 @@ class MetricsSystemTest {
             generationTimeMs = 100,
             batteryReport = null,
             connectionReport = null,
+            subscriptionReport = null,
+            errorReport = null,
+            notificationReport = null,
             duplicateEventReport = null
         )
         

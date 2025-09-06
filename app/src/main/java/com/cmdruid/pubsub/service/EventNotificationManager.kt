@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
 class EventNotificationManager(
     private val context: Context,
     private val settingsManager: SettingsManager,
+    private val metricsCollector: MetricsCollector?,
     private val sendDebugLog: (String) -> Unit,
     private val unifiedLogger: UnifiedLogger
 ) : SettingsManager.SettingsChangeListener {
@@ -142,6 +143,14 @@ class EventNotificationManager(
             unifiedLogger.error(LogDomain.NOTIFICATION, 
                 "CRITICAL BUG: Cross-subscription notification detected! " +
                 "Event subscription: $subscriptionId, Config subscription: ${configuration.subscriptionId}, Config name: ${configuration.name}")
+            
+            // Track notification error
+            metricsCollector?.trackError(
+                errorType = ErrorType.NOTIFICATION,
+                relayUrl = null,
+                subscriptionId = subscriptionId,
+                errorMessage = "Cross-subscription notification detected"
+            )
             return
         }
         
@@ -160,12 +169,26 @@ class EventNotificationManager(
         // Rate limiting: max notifications per hour and minimum time between notifications
         if (notificationCount >= maxNotificationsPerHour) {
             sendDebugLog("Rate limit: ${configuration.name} (${notificationCount}/${maxNotificationsPerHour})")
+            
+            // Track rate limit hit
+            metricsCollector?.trackNotificationRateLimit(
+                subscriptionId = subscriptionId,
+                relayUrl = configuration.relayUrls.firstOrNull() ?: "unknown",
+                reason = "Hourly limit exceeded: ${notificationCount}/${maxNotificationsPerHour}"
+            )
             return
         }
         
         val notificationRateLimit = settingsManager.getCurrentNotificationRateLimit()
         if (currentTime - lastNotificationTime < notificationRateLimit) {
             sendDebugLog("⏱️ Too frequent: ${configuration.name} (${(currentTime - lastNotificationTime)/1000}s < ${notificationRateLimit/1000}s)")
+            
+            // Track rate limit hit
+            metricsCollector?.trackNotificationRateLimit(
+                subscriptionId = subscriptionId,
+                relayUrl = configuration.relayUrls.firstOrNull() ?: "unknown",
+                reason = "Time limit exceeded: ${(currentTime - lastNotificationTime)/1000}s < ${notificationRateLimit/1000}s"
+            )
             return
         }
         

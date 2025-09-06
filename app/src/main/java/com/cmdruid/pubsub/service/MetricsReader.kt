@@ -53,6 +53,9 @@ class MetricsReader(
                 generationTimeMs = 0, // No complex generation needed
                 batteryReport = generateBatteryReport(currentTime, startTime),
                 connectionReport = generateConnectionReport(currentTime, startTime),
+                subscriptionReport = generateSubscriptionReport(currentTime, startTime),
+                errorReport = generateErrorReport(currentTime, startTime),
+                notificationReport = generateNotificationReport(currentTime, startTime),
                 duplicateEventReport = generateDuplicateEventReport(currentTime, startTime)
             )
         } catch (e: Exception) {
@@ -144,8 +147,11 @@ class MetricsReader(
             (duplicatesDetected.toDouble() / eventsProcessed * 100.0)
         } else 0.0
         
-        val preventionRate = if (duplicatesDetected > 0) {
-            (duplicatesPrevented.toDouble() / duplicatesDetected * 100.0)
+        // FIXED: Prevention rate should be based on total duplicates (detected + prevented)
+        // This represents how many duplicates we successfully prevented vs total duplicates encountered
+        val totalDuplicates = duplicatesDetected + duplicatesPrevented
+        val preventionRate = if (totalDuplicates > 0) {
+            (duplicatesPrevented.toDouble() / totalDuplicates * 100.0)
         } else 0.0
         
         val totalTimestampUsage = preciseTimestampUsage + safetyBufferUsage
@@ -163,6 +169,105 @@ class MetricsReader(
             networkDataSavedBytes = networkDataSaved,
             preciseTimestampUsage = preciseTimestampUsage,
             preciseTimestampRate = preciseTimestampRate
+        )
+    }
+    
+    /**
+     * Generate subscription report (background thread)
+     */
+    private fun generateSubscriptionReport(currentTime: Long, startTime: Long): SubscriptionReport {
+        val durationHours = (currentTime - startTime) / (1000.0 * 60.0 * 60.0)
+        val renewals = prefs.getLong("subscription_renewals", 0)
+        val failures = prefs.getLong("subscription_renewal_failures", 0)
+        val totalDelays = prefs.getLong("subscription_renewal_delays", 0)
+        val silencePeriods = prefs.getLong("subscription_silence_periods", 0)
+        
+        val totalRenewals = renewals + failures
+        val renewalSuccessRate = if (totalRenewals > 0) {
+            (renewals.toDouble() / totalRenewals * 100.0)
+        } else 0.0
+        
+        val averageRenewalDelay = if (totalRenewals > 0) {
+            totalDelays.toDouble() / totalRenewals
+        } else 0.0
+        
+        // Calculate total event flow from all subscription keys
+        var totalEventFlow = 0L
+        var totalFlowRates = 0.0
+        var flowRateCount = 0
+        
+        val allKeys = prefs.all.keys
+        allKeys.forEach { key ->
+            when {
+                key.startsWith("events_") -> {
+                    totalEventFlow += prefs.getLong(key, 0)
+                }
+                key.startsWith("flow_rate_") -> {
+                    totalFlowRates += prefs.getFloat(key, 0f).toDouble()
+                    flowRateCount++
+                }
+            }
+        }
+        
+        val averageEventFlowRate = if (flowRateCount > 0) {
+            totalFlowRates / flowRateCount
+        } else 0.0
+        
+        return SubscriptionReport(
+            collectionDurationHours = durationHours,
+            subscriptionRenewals = renewals,
+            subscriptionRenewalFailures = failures,
+            renewalSuccessRate = renewalSuccessRate,
+            averageRenewalDelay = averageRenewalDelay,
+            subscriptionSilencePeriods = silencePeriods,
+            totalEventFlow = totalEventFlow,
+            averageEventFlowRate = averageEventFlowRate
+        )
+    }
+    
+    /**
+     * Generate error report (background thread)
+     */
+    private fun generateErrorReport(currentTime: Long, startTime: Long): ErrorReport {
+        val durationHours = (currentTime - startTime) / (1000.0 * 60.0 * 60.0)
+        val totalErrors = prefs.getLong("total_errors", 0)
+        val websocketErrors = prefs.getLong("errors_websocket", 0)
+        val parsingErrors = prefs.getLong("errors_parsing", 0)
+        val filterErrors = prefs.getLong("errors_filter", 0)
+        val notificationErrors = prefs.getLong("errors_notification", 0)
+        val subscriptionErrors = prefs.getLong("errors_subscription", 0)
+        val healthErrors = prefs.getLong("errors_health", 0)
+        val networkErrors = prefs.getLong("errors_network", 0)
+        val batteryErrors = prefs.getLong("errors_battery", 0)
+        val unknownErrors = prefs.getLong("errors_unknown", 0)
+        
+        return ErrorReport(
+            collectionDurationHours = durationHours,
+            totalErrors = totalErrors,
+            websocketErrors = websocketErrors,
+            parsingErrors = parsingErrors,
+            filterErrors = filterErrors,
+            notificationErrors = notificationErrors,
+            subscriptionErrors = subscriptionErrors,
+            healthErrors = healthErrors,
+            networkErrors = networkErrors,
+            batteryErrors = batteryErrors,
+            unknownErrors = unknownErrors,
+            lastErrorType = prefs.getString("last_error_type", null),
+            lastErrorMessage = prefs.getString("last_error_message", null),
+            lastErrorTime = prefs.getLong("last_error_time", 0)
+        )
+    }
+
+    private fun generateNotificationReport(currentTime: Long, startTime: Long): NotificationReport {
+        val durationHours = (currentTime - startTime) / (1000.0 * 60.0 * 60.0)
+        val totalRateLimits = prefs.getLong("notification_rate_limits", 0)
+        
+        return NotificationReport(
+            collectionDurationHours = durationHours,
+            totalRateLimits = totalRateLimits,
+            lastRateLimitReason = prefs.getString("last_rate_limit_reason", null),
+            lastRateLimitTime = prefs.getLong("last_rate_limit_time", 0)
         )
     }
     
@@ -330,6 +435,9 @@ class MetricsReader(
         val generationTimeMs: Long,
         val batteryReport: BatteryReport?,
         val connectionReport: ConnectionReport?,
+        val subscriptionReport: SubscriptionReport?,
+        val errorReport: ErrorReport?,
+        val notificationReport: NotificationReport?,
         val duplicateEventReport: DuplicateEventReport?
     )
     
@@ -353,6 +461,41 @@ class MetricsReader(
         val totalHealthChecks: Long,
         val batchHealthChecks: Long,
         val batchCheckOptimizationRate: Double
+    )
+    
+    data class SubscriptionReport(
+        val collectionDurationHours: Double,
+        val subscriptionRenewals: Long,
+        val subscriptionRenewalFailures: Long,
+        val renewalSuccessRate: Double,
+        val averageRenewalDelay: Double,
+        val subscriptionSilencePeriods: Long,
+        val totalEventFlow: Long,
+        val averageEventFlowRate: Double
+    )
+    
+    data class ErrorReport(
+        val collectionDurationHours: Double,
+        val totalErrors: Long,
+        val websocketErrors: Long,
+        val parsingErrors: Long,
+        val filterErrors: Long,
+        val notificationErrors: Long,
+        val subscriptionErrors: Long,
+        val healthErrors: Long,
+        val networkErrors: Long,
+        val batteryErrors: Long,
+        val unknownErrors: Long,
+        val lastErrorType: String?,
+        val lastErrorMessage: String?,
+        val lastErrorTime: Long
+    )
+
+    data class NotificationReport(
+        val collectionDurationHours: Double,
+        val totalRateLimits: Long,
+        val lastRateLimitReason: String?,
+        val lastRateLimitTime: Long
     )
     
     data class DuplicateEventReport(

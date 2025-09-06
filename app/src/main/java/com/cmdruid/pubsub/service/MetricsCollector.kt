@@ -8,6 +8,21 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
+ * Error types for diagnostic categorization
+ */
+enum class ErrorType {
+    WEBSOCKET,      // WebSocket connection errors
+    PARSING,        // Message parsing failures
+    FILTER,         // Filter application errors
+    NOTIFICATION,   // Notification delivery failures
+    SUBSCRIPTION,   // Subscription management errors
+    HEALTH,         // Health check failures
+    NETWORK,        // Network connectivity issues
+    BATTERY,        // Battery optimization errors
+    UNKNOWN         // Unclassified errors
+}
+
+/**
  * WRITE-ONLY metrics collector for service components
  * - Collects performance data in background threads
  * - Zero overhead when metrics disabled
@@ -218,6 +233,175 @@ class MetricsCollector(
                     editor.putLong("safety_buffer_usage", safety)
                 }
                 
+                editor.putLong("last_update", System.currentTimeMillis()).apply()
+            } catch (e: Exception) {
+                // Silent failure
+            }
+        }
+    }
+    
+    /**
+     * Track subscription renewal events (non-blocking)
+     */
+    fun trackSubscriptionRenewal(
+        subscriptionId: String,
+        relayUrl: String,
+        success: Boolean,
+        delay: Long,
+        reason: String? = null
+    ) {
+        if (!isEnabled()) return
+        
+        collectorScope.launch {
+            try {
+                val editor = prefs.edit()
+                
+                if (success) {
+                    val renewals = prefs.getLong("subscription_renewals", 0) + 1
+                    editor.putLong("subscription_renewals", renewals)
+                } else {
+                    val failures = prefs.getLong("subscription_renewal_failures", 0) + 1
+                    editor.putLong("subscription_renewal_failures", failures)
+                }
+                
+                // Track renewal delays (cumulative)
+                val totalDelay = prefs.getLong("subscription_renewal_delays", 0) + delay
+                editor.putLong("subscription_renewal_delays", totalDelay)
+                
+                // Track per-subscription renewal count
+                val key = "renewals_${subscriptionId}_${relayUrl.hashCode()}"
+                val subRenewals = prefs.getLong(key, 0) + 1
+                editor.putLong(key, subRenewals)
+                
+                editor.putLong("last_update", System.currentTimeMillis()).apply()
+            } catch (e: Exception) {
+                // Silent failure
+            }
+        }
+    }
+    
+    /**
+     * Track event flow for subscription health monitoring (non-blocking)
+     */
+    fun trackEventFlow(
+        subscriptionId: String,
+        relayUrl: String,
+        eventsReceived: Int,
+        timeSpan: Long
+    ) {
+        if (!isEnabled()) return
+        
+        collectorScope.launch {
+            try {
+                val editor = prefs.edit()
+                
+                // Track total events per subscription
+                val key = "events_${subscriptionId}_${relayUrl.hashCode()}"
+                val totalEvents = prefs.getLong(key, 0) + eventsReceived
+                editor.putLong(key, totalEvents)
+                
+                // Track event flow rate (events per minute)
+                val flowRate = if (timeSpan > 0) (eventsReceived * 60000.0 / timeSpan) else 0.0
+                val rateKey = "flow_rate_${subscriptionId}_${relayUrl.hashCode()}"
+                val avgRate = prefs.getFloat(rateKey, 0f)
+                val newAvgRate = (avgRate + flowRate.toFloat()) / 2f // Simple moving average
+                editor.putFloat(rateKey, newAvgRate)
+                
+                // Track silence periods (when eventsReceived = 0)
+                if (eventsReceived == 0) {
+                    val silencePeriods = prefs.getLong("subscription_silence_periods", 0) + 1
+                    editor.putLong("subscription_silence_periods", silencePeriods)
+                }
+                
+                editor.putLong("last_update", System.currentTimeMillis()).apply()
+            } catch (e: Exception) {
+                // Silent failure
+            }
+        }
+    }
+    
+    /**
+     * Track categorized errors for diagnostic purposes (non-blocking)
+     */
+    fun trackError(
+        errorType: ErrorType,
+        relayUrl: String? = null,
+        subscriptionId: String? = null,
+        errorMessage: String
+    ) {
+        if (!isEnabled()) return
+
+        collectorScope.launch {
+            try {
+                val editor = prefs.edit()
+
+                // Track error counts by type
+                val errorKey = "errors_${errorType.name.lowercase()}"
+                val errorCount = prefs.getLong(errorKey, 0) + 1
+                editor.putLong(errorKey, errorCount)
+
+                // Track total errors
+                val totalErrors = prefs.getLong("total_errors", 0) + 1
+                editor.putLong("total_errors", totalErrors)
+
+                // Track per-relay errors
+                relayUrl?.let { url ->
+                    val relayKey = "relay_errors_${url.hashCode()}"
+                    val relayErrors = prefs.getLong(relayKey, 0) + 1
+                    editor.putLong(relayKey, relayErrors)
+                }
+
+                // Track per-subscription errors
+                subscriptionId?.let { subId ->
+                    val subKey = "sub_errors_${subId}"
+                    val subErrors = prefs.getLong(subKey, 0) + 1
+                    editor.putLong(subKey, subErrors)
+                }
+
+                // Store last error for diagnostic purposes
+                editor.putString("last_error_type", errorType.name)
+                editor.putString("last_error_message", errorMessage.take(100)) // Limit length
+                editor.putLong("last_error_time", System.currentTimeMillis())
+
+                editor.putLong("last_update", System.currentTimeMillis()).apply()
+            } catch (e: Exception) {
+                // Silent failure
+            }
+        }
+    }
+
+    /**
+     * Track notification rate limiting events
+     */
+    fun trackNotificationRateLimit(
+        subscriptionId: String,
+        relayUrl: String,
+        reason: String
+    ) {
+        if (!isEnabled()) return
+
+        collectorScope.launch {
+            try {
+                val editor = prefs.edit()
+
+                // Track total rate limits
+                val totalRateLimits = prefs.getLong("notification_rate_limits", 0) + 1
+                editor.putLong("notification_rate_limits", totalRateLimits)
+
+                // Track per-subscription rate limits
+                val subKey = "rate_limits_${subscriptionId}"
+                val subRateLimits = prefs.getLong(subKey, 0) + 1
+                editor.putLong(subKey, subRateLimits)
+
+                // Track per-relay rate limits
+                val relayKey = "rate_limits_relay_${relayUrl.hashCode()}"
+                val relayRateLimits = prefs.getLong(relayKey, 0) + 1
+                editor.putLong(relayKey, relayRateLimits)
+
+                // Store last rate limit for diagnostic purposes
+                editor.putString("last_rate_limit_reason", reason.take(100))
+                editor.putLong("last_rate_limit_time", System.currentTimeMillis())
+
                 editor.putLong("last_update", System.currentTimeMillis()).apply()
             } catch (e: Exception) {
                 // Silent failure
